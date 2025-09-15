@@ -1,8 +1,8 @@
 from typing import List
 
-from ...framework.core.game_state import GameState
-from ...framework.simulation.action import Action
-from ...framework.simulation.base_game_engine import BaseGameEngine
+from framework.core.game_state import GameState
+from framework.simulation.action import Action
+from framework.simulation.base_game_engine import BaseGameEngine
 
 class RuleSetOneEngine(BaseGameEngine):
     """

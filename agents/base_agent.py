@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List
 
-from ..framework.core.game_state import GameState
-from ..framework.simulation.action import Action
+from framework.core.game_state import GameState
+from framework.simulation.action import Action
 
 class BaseAgent(ABC):
     """

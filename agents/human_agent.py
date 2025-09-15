@@ -1,7 +1,7 @@
 from typing import List
 
-from ..framework.core.game_state import GameState
-from ..framework.simulation.action import Action
+from framework.core.game_state import GameState
+from framework.simulation.action import Action
 from .base_agent import BaseAgent
 
 class HumanAgent(BaseAgent):

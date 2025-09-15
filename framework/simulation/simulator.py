@@ -1,7 +1,7 @@
 from typing import List
 
 # We will create BaseAgent in the next step, for now we just type hint it.
-from ..agents.base_agent import BaseAgent 
+from agents.base_agent import BaseAgent 
 from ..core.game_state import GameState
 from ..core.player import Player
 from .base_game_engine import BaseGameEngine
