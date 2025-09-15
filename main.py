@@ -15,12 +15,13 @@ def main():
     draw_bot_card = Card(card_id="DRAW_BOT", name="Draw Bot")
 
     # 2. Build the decks for the players
-    # We create new instances of the cards for each deck
-    deck1 = [Card(c.card_id, c.name) for c in [attack_bot_card]*5 + [draw_bot_card]*5]
-    deck2 = [Card(c.card_id, c.name) for c in [attack_bot_card]*5 + [draw_bot_card]*5]
+    # --- DECK SIZE INCREASED HERE ---
+    # We create larger decks to prevent players from running out of cards.
+    deck1 = [Card(c.card_id, c.name) for c in [attack_bot_card]*10 + [draw_bot_card]*10]
+    deck2 = [Card(c.card_id, c.name) for c in [attack_bot_card]*10 + [draw_bot_card]*10]
 
+    # ... (The rest of the file is exactly the same)
     # 3. Create the agents that will play the game
-    # To play yourself, change one of these to HumanAgent("Your Name")
     agent1 = SimpleAiAgent("AI Player Alice")
     agent2 = SimpleAiAgent("AI Player Bob")
     # agent1 = HumanAgent("Human Player") 
@@ -34,7 +35,6 @@ def main():
     simulator = GameSimulator(game_engine=game_engine, agents=agents)
     
     # 6. Assign decks to the players in the game state
-    # This is done after the simulator is created, as it holds the game_state
     simulator.game_state.players[0].setup_deck(deck1)
     simulator.game_state.players[1].setup_deck(deck2)
 
