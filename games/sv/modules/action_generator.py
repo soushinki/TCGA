@@ -1,9 +1,9 @@
 from typing import List
 
-from ....framework.core.game_state import GameState
-from ....framework.core.player import Player
-from ....framework.simulation.action import Action
-from ....framework.simulation.base_action_generator import BaseActionGenerator
+from framework.core.game_state import GameState
+from framework.core.player import Player
+from framework.simulation.action import Action
+from framework.simulation.base_action_generator import BaseActionGenerator
 from .resource_manager import SvResourceManager
 
 class SvActionGenerator(BaseActionGenerator):
@@ -15,7 +15,6 @@ class SvActionGenerator(BaseActionGenerator):
         resources: SvResourceManager = player.resources
 
         # 1. Generate "Play Card" actions
-        # Assumes a 'Board' zone exists, check if it's full.
         if len(player.board.get_cards()) < 5:
             for card in player.hand.get_cards():
                 if resources.can_play_card(card):
@@ -26,15 +25,12 @@ class SvActionGenerator(BaseActionGenerator):
                     ))
 
         # 2. Generate "Attack" actions
-        # TODO: This logic should be expanded to correctly handle Ward.
-        attackers = [f for f in player.board.get_cards() if f.get_property("can_attack", True)] # Assume True for now
+        attackers = [f for f in player.board.get_cards() if f.get_property("can_attack", True)]
         opponent = next(p for p in game_state.players if p is not player)
         valid_targets = opponent.board.get_cards() + [opponent]
 
         for attacker in attackers:
             for target in valid_targets:
-                # --- THIS IS THE IMPROVEMENT ---
-                # Use instance_id for cards, but the player's name for the player object
                 target_id = target.instance_id if hasattr(target, 'instance_id') else target.name
                 actions.append(Action(
                     player_id=player.name,

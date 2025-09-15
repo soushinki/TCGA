@@ -1,16 +1,24 @@
 from typing import List, Optional
 
-from framework.core.player import Player # Import Player
+from framework.core.player import Player
 from framework.core.game_state import GameState
 from framework.simulation.action import Action
 from framework.simulation.base_game_engine import BaseGameEngine
 
 class RuleSetOneEngine(BaseGameEngine):
     """
-    ...
+    A concrete implementation of a GameEngine for a very simple TCG.
     """
+    # --- __init__ METHOD ADDED HERE ---
+    def __init__(self):
+        """
+        Initializes the RuleSetOneEngine.
+        """
+        # We must call the parent's __init__ method with a game_mode.
+        super().__init__(game_mode='RuleSetOne')
+
     def setup_game(self, game_state: GameState):
-        # ... (no changes here)
+        # ... (rest of the file is unchanged)
         for player in game_state.players:
             player.life = 10
             player.draw_card()
@@ -19,7 +27,6 @@ class RuleSetOneEngine(BaseGameEngine):
         print("RuleSetOneEngine: Game setup complete. Players have 10 life and 3 cards.")
 
     def get_possible_actions(self, game_state: GameState) -> List[Action]:
-        # ... (no changes here)
         actions = []
         active_player = game_state.active_player
         for card in active_player.hand.get_cards():
@@ -28,13 +35,12 @@ class RuleSetOneEngine(BaseGameEngine):
                 action_type="PLAY_CARD",
                 details={"card_instance_id": card.instance_id}
             ))
-        actions.append(Action(player_id=active_player.name, action_type="PASS_TURN"))
+        actions.append(Action(player_id=active_player.name, action_type="END_TURN"))
         return actions
 
     def apply_action(self, game_state: GameState, action: Action):
-        # ... (no changes here)
         active_player = game_state.active_player
-        if action.action_type == "PASS_TURN":
+        if action.action_type == "PASS_TURN" or action.action_type == "END_TURN":
             print(f"{active_player.name} passes the turn.")
             return
         if action.action_type == "PLAY_CARD":
@@ -54,14 +60,9 @@ class RuleSetOneEngine(BaseGameEngine):
             else:
                 print(f"ERROR: Card with instance ID {card_instance_id} not found in hand.")
 
-    # --- NEW METHOD IMPLEMENTED HERE ---
     def check_win_condition(self, game_state: GameState) -> Optional[Player]:
-        """
-        In RuleSetOne, a player wins if their opponent's life is 0 or less.
-        """
         for player in game_state.players:
-            # Find the opponent
             opponent = next(p for p in game_state.players if p is not player)
             if opponent.life <= 0:
-                return player # This player is the winner
-        return None # No winner yet
+                return player
+        return None

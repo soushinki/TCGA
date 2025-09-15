@@ -1,9 +1,9 @@
 from typing import List, Optional
 
-from ...framework.core.game_state import GameState
-from ...framework.core.player import Player
-from ...framework.simulation.action import Action
-from ...framework.simulation.base_game_engine import BaseGameEngine
+from framework.core.game_state import GameState
+from framework.core.player import Player
+from framework.simulation.action import Action
+from framework.simulation.base_game_engine import BaseGameEngine
 from .modules.resource_manager import SvResourceManager
 from .modules.action_generator import SvActionGenerator
 
@@ -16,7 +16,8 @@ class SvEngine(BaseGameEngine):
             raise ValueError("Invalid game mode specified for SvEngine.")
         
         self.action_generator = SvActionGenerator(game_mode)
-        self.game_mode = game_mode
+        # We need to pass the game_mode to the base class __init__
+        super().__init__(game_mode)
 
     def setup_game(self, game_state: GameState):
         hand_size = 4 if self.game_mode == 'SVWB' else 3
@@ -44,12 +45,9 @@ class SvEngine(BaseGameEngine):
             if card and player.resources.can_play_card(card):
                 player.resources.spend_resources_for_card(card)
                 player.hand.remove(card)
-                
-                # Simplified: assumes all non-spells go to board.
-                # A real implementation would check card type from properties.
                 player.board.add(card)
                 print(f"{player.name} played {card.name}.")
-                # TODO: Trigger Fanfare effects via the TriggerManager/Lua scripting engine.
+                # TODO: Trigger Fanfare effects
             
         elif action.action_type == "ATTACK":
             attacker = next((c for c in player.board.get_cards() if c.instance_id == action.details['attacker_id']), None)
@@ -62,7 +60,7 @@ class SvEngine(BaseGameEngine):
 
             if attacker and target:
                 print(f"{attacker.name} attacks {target.name if isinstance(target, Player) else target.name}!")
-                # TODO: Implement combat logic (damage calculation, keywords like Bane/Drain).
+                # TODO: Implement combat logic
         
         elif action.action_type == "EVOLVE":
             if player.resources.can_evolve():
@@ -71,7 +69,7 @@ class SvEngine(BaseGameEngine):
                 target = next((c for c in player.board.get_cards() if c.instance_id == target_id), None)
                 if target:
                     print(f"{player.name} evolves {target.name}!")
-                    # TODO: Apply evolve stats and trigger on_evolve effects via Lua.
+                    # TODO: Apply evolve stats and trigger effects
 
     def check_win_condition(self, game_state: GameState) -> Optional[Player]:
         for player in game_state.players:
