@@ -1,7 +1,7 @@
-from ....framework.core.player import Player
-from ....framework.core.card import Card
-from ....framework.core.game_state import GameState
-from ....framework.simulation.base_resource_manager import BaseResourceManager
+from framework.core.player import Player
+from framework.core.card import Card
+from framework.core.game_state import GameState
+from framework.simulation.base_resource_manager import BaseResourceManager
 
 class SvResourceManager(BaseResourceManager):
     """
