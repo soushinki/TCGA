@@ -1,6 +1,7 @@
 import argparse
 import sys
 import questionary
+from questionary import Choice
 
 from framework.core.card import Card
 from framework.simulation.simulator import GameSimulator
@@ -9,7 +10,7 @@ from agents.human_agent import HumanAgent
 from games.ruleset_one.engine import RuleSetOneEngine
 from games.sv.engine import SvEngine
 from games.sv.database.db_loader import CardDatabase
-from games.sv.utils.deck_builder import DeckLoader, DeckValidator
+from games.sv.utils.deck_builder import DeckLoader
 
 def run_simulation(game_name: str, agent1_type: str, agent2_type: str, sv_mode: str = 'SV', **kwargs):
     """
@@ -27,7 +28,6 @@ def run_simulation(game_name: str, agent1_type: str, agent2_type: str, sv_mode: 
     agents.append(agent_map.get(agent2_type, SimpleAiAgent)(f"Player 2 ({agent2_type.upper()})"))
 
     # 2. Create Game Engine and Decks based on the chosen game
-    # --- THIS 'IF' BLOCK IS NOW CORRECTLY FILLED ---
     if game_name == 'ruleset_one':
         game_engine = RuleSetOneEngine()
         attack_bot = Card(card_id="ATTACK_BOT", name="Attack Bot", properties={'cost': 1})
@@ -58,47 +58,58 @@ def show_sv_settings_menu():
     """Shows a wizard-style menu to configure a Shadowverse game."""
     print("\n--- Shadowverse Game Setup ---")
     
+    # 1. Load the database and all valid decks
     try:
         db = CardDatabase('games/sv/database/cards.json')
-        validator = DeckValidator(db)
-        deck_loader = DeckLoader('games/sv/decks', validator)
+        deck_loader = DeckLoader('games/sv/decks', db)
         
         if not deck_loader.valid_decks:
-            print("No valid decks found in 'games/sv/decks/'. Cannot start a game.")
-            questionary.press_any_key_to_continue("Press any key to return to the main menu...").ask()
+            print("No valid decks found in 'games/sv/decks/'.")
+            questionary.press_any_key_to_continue("Press any key to return...").ask()
             return
+
+        deck_choices = [
+            Choice(
+                title=f"{data['deckName']} ({data['class']})", 
+                value=filename
+            ) for filename, data in deck_loader.valid_decks.items()
+        ]
             
-        deck_choices = list(deck_loader.valid_decks.keys())
     except Exception as e:
-        print(f"Error loading decks: {e}")
+        print(f"Error loading game data: {e}")
         return
 
+    # 2. Ask user for configuration
     try:
         agent1 = questionary.select("Select Player 1's agent:", choices=["simple_ai", "human"]).ask()
         if agent1 is None: return
 
-        deck1_name = questionary.select("Select Player 1's deck:", choices=deck_choices).ask()
-        if deck1_name is None: return
+        deck1_filename = questionary.select("Select Player 1's deck:", choices=deck_choices).ask()
+        if deck1_filename is None: return
 
         agent2 = questionary.select("Select Player 2's agent:", choices=["simple_ai", "human"]).ask()
         if agent2 is None: return
         
-        deck2_name = questionary.select("Select Player 2's deck:", choices=deck_choices).ask()
-        if deck2_name is None: return
+        deck2_filename = questionary.select("Select Player 2's deck:", choices=deck_choices).ask()
+        if deck2_filename is None: return
 
         mode = questionary.select("Select Game Mode:", choices=["SV", "SVWB"]).ask()
         if mode is None: return
 
+        # 3. Confirmation
+        deck1_data = deck_loader.valid_decks[deck1_filename]
+        deck2_data = deck_loader.valid_decks[deck2_filename]
         confirm_message = (f"Start Simulation?\n"
-                         f"  - P1: {agent1} ({deck1_name})\n"
-                         f"  - P2: {agent2} ({deck2_name})\n"
+                         f"  - P1: {agent1} ({deck1_data['deckName']})\n"
+                         f"  - P2: {agent2} ({deck2_data['deckName']})\n"
                          f"  - Mode: {mode}")
         confirm = questionary.confirm(confirm_message).ask()
         if confirm is None: return
         
         if confirm:
-            deck1_ids = deck_loader.valid_decks[deck1_name]
-            deck2_ids = deck_loader.valid_decks[deck2_name]
+            # 4. Build the final decks of Card objects
+            deck1_ids = deck1_data['cardIds']
+            deck2_ids = deck2_data['cardIds']
 
             deck1 = [Card(card_id, db.get_card_data(card_id)['name'], db.get_card_data(card_id)) for card_id in deck1_ids]
             deck2 = [Card(card_id, db.get_card_data(card_id)['name'], db.get_card_data(card_id)) for card_id in deck2_ids]
@@ -128,7 +139,6 @@ def show_main_menu():
                 break
 
             elif choice == "1. Run RuleSetOne (AI vs AI)":
-                # --- THIS LINE IS NOW CORRECTED ---
                 run_simulation(game_name='ruleset_one', agent1_type='simple_ai', agent2_type='simple_ai')
 
             elif choice == "2. Configure a Shadowverse Game":
@@ -141,7 +151,7 @@ def show_main_menu():
 
 
 def setup_arg_parser():
-    # ... (this function is unchanged)
+    """Sets up the command-line argument parser."""
     parser = argparse.ArgumentParser(description="A flexible TCG Simulator.")
     parser.add_argument('--game', type=str, choices=['ruleset_one', 'sv'], 
                         help='The name of the game to run in headless mode.')
@@ -162,20 +172,24 @@ if __name__ == "__main__":
         # In headless mode, we need to manually load decks for SV
         kwargs = {}
         if args.game == 'sv':
-            db = CardDatabase('games/sv/database/cards.json')
-            validator = DeckValidator(db)
-            deck_loader = DeckLoader('games/sv/decks', validator)
-            
-            if not deck_loader.valid_decks:
-                print("Error: No valid decks found for SV headless mode.")
+            try:
+                db = CardDatabase('games/sv/database/cards.json')
+                deck_loader = DeckLoader('games/sv/decks', db)
+                
+                if not deck_loader.valid_decks:
+                    print("Error: No valid decks found for SV headless mode.")
+                    sys.exit(1)
+                
+                # Just grab the first valid deck for both players
+                deck_filename = list(deck_loader.valid_decks.keys())[0]
+                deck_data = deck_loader.valid_decks[deck_filename]
+                deck_ids = deck_data['cardIds']
+                deck = [Card(card_id, db.get_card_data(card_id)['name'], db.get_card_data(card_id)) for card_id in deck_ids]
+                kwargs['deck1'] = deck
+                kwargs['deck2'] = deck
+            except Exception as e:
+                print(f"Error setting up headless SV game: {e}")
                 sys.exit(1)
-            
-            # Just grab the first valid deck for both players
-            deck_name = list(deck_loader.valid_decks.keys())[0]
-            deck_ids = deck_loader.valid_decks[deck_name]
-            deck = [Card(card_id, db.get_card_data(card_id)['name'], db.get_card_data(card_id)) for card_id in deck_ids]
-            kwargs['deck1'] = deck
-            kwargs['deck2'] = deck
 
         run_simulation(args.game, args.agent1, args.agent2, args.mode, **kwargs)
     else:

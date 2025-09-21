@@ -1,0 +1,20 @@
+{
+    "deckName": "Core Neutral (for Swordcraft)",
+    "class": "Swordcraft",
+    "cardIds": [
+        "NEU_001", "NEU_001", "NEU_001",
+        "NEU_002", "NEU_002", "NEU_002",
+        "NEU_003", "NEU_003", "NEU_003",
+        "NEU_004", "NEU_004", "NEU_004",
+        "NEU_006", "NEU_006", "NEU_006",
+        "NEU_007", "NEU_007", "NEU_007",
+        "NEU_008", "NEU_008", "NEU_008",
+        "NEU_010", "NEU_010", "NEU_010",
+        "NEU_011", "NEU_011", "NEU_011",
+        "NEU_012", "NEU_012", "NEU_012",
+        "NEU_009", "NEU_009", "NEU_009",
+        "NEU_013", "NEU_013", "NEU_013",
+        "NEU_005", "NEU_005",
+        "NEU_014", "NEU_014"
+    ]
+}

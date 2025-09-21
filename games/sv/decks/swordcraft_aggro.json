@@ -1,14 +1,21 @@
-[
-  "NEU_001", "NEU_001", "NEU_001",
-  "NEU_002", "NEU_002", "NEU_002",
-  "SWD_001", "SWD_001", "SWD_001",
-  "SWD_002", "SWD_002", "SWD_002",
-  "NEU_003", "NEU_003", "NEU_003",
-  "SWD_003", "SWD_003", "SWD_003",
-  "SWD_004", "SWD_004", "SWD_004",
-  "NEU_004", "NEU_004", "NEU_004",
-  "NEU_005", "NEU_005",
-  "FOR_001", "FOR_001", "FOR_001",
-  "FOR_002", "FOR_002", "FOR_002",
-  "FOR_003", "FOR_003", "FOR_003"
-]
+{
+    "deckName": "Aggro Sword",
+    "class": "Swordcraft",
+    "cardIds": [
+        "SWD_005", "SWD_005", "SWD_005",
+        "NEU_001", "NEU_001", "NEU_001",
+        "SWD_001", "SWD_001", "SWD_001",
+        "SWD_002", "SWD_002", "SWD_002",
+        "SWD_006", "SWD_006", "SWD_006",
+        "NEU_002", "NEU_002", "NEU_002",
+        "SWD_007", "SWD_007", "SWD_007",
+        "NEU_012", "NEU_012", "NEU_012",
+        "SWD_009", "SWD_009", "SWD_009",
+        "SWD_003", "SWD_003", "SWD_003",
+        "NEU_003", "NEU_003",
+        "SWD_014", "SWD_014",
+        "SWD_008", "SWD_008",
+        "NEU_005", "NEU_005",
+        "SWD_010", "SWD_010"
+    ]
+}

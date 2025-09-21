@@ -1,7 +1,7 @@
 import os
 import json
 from collections import Counter
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 
 from ..database.db_loader import CardDatabase
 
@@ -12,28 +12,36 @@ class DeckValidator:
     def __init__(self, db: CardDatabase):
         self.db = db
 
-    def validate(self, deck_card_ids: List[str]) -> Tuple[bool, str]:
+    def validate(self, deck_data: Dict[str, Any]) -> Tuple[bool, str]:
         """
-        Checks a list of card IDs against SV rules.
+        Checks a deck data object against SV rules.
+        """
+        # --- LOGIC UPDATED TO USE THE DECK_DATA OBJECT ---
+        deck_class = deck_data.get('class')
+        card_ids = deck_data.get('cardIds', [])
 
-        Returns:
-            A tuple containing (isValid, reasonStr).
-        """
+        if not deck_class or not card_ids:
+            return False, "Deck file is missing 'class' or 'cardIds' key."
+
         # Rule 1: Deck Size
-        if len(deck_card_ids) != 40:
-            return False, f"Deck must contain exactly 40 cards, but it has {len(deck_card_ids)}."
+        if len(card_ids) != 40:
+            return False, f"Deck must contain 40 cards, but it has {len(card_ids)}."
 
         # Rule 2: Card Copies
-        counts = Counter(deck_card_ids)
+        counts = Counter(card_ids)
         for card_id, count in counts.items():
             if count > 3:
                 card_name = self.db.get_card_data(card_id).get('name', card_id)
-                return False, f"Deck contains {count} copies of '{card_name}'. Maximum is 3."
+                return False, f"Deck contains {count} copies of '{card_name}'. Max is 3."
 
-        # Rule 3: All card IDs must be valid
+        # Rule 3 & 4: Card Existence and Class Allegiance
         for card_id in counts.keys():
             try:
-                self.db.get_card_data(card_id)
+                card_data = self.db.get_card_data(card_id)
+                card_class = card_data.get('class')
+                if card_class not in [deck_class, 'Neutral']:
+                    card_name = card_data.get('name', card_id)
+                    return False, f"'{deck_class}' deck contains a '{card_class}' card: '{card_name}'."
             except KeyError:
                 return False, f"Deck contains an invalid Card ID: '{card_id}'."
 
@@ -44,12 +52,12 @@ class DeckLoader:
     """
     Loads and validates all deck files from a specified directory.
     """
-    def __init__(self, deck_folder_path: str, validator: DeckValidator):
+    def __init__(self, deck_folder_path: str, db: CardDatabase):
         self.deck_folder_path = deck_folder_path
-        self.validator = validator
-        self.valid_decks: Dict[str, List[str]] = self._load_decks()
+        self.validator = DeckValidator(db)
+        self.valid_decks: Dict[str, Dict[str, Any]] = self._load_decks()
 
-    def _load_decks(self) -> Dict[str, List[str]]:
+    def _load_decks(self) -> Dict[str, Dict[str, Any]]:
         """Scans the directory, validates, and loads all legal decks."""
         print("\n--- Loading Decks ---")
         loaded_decks = {}
@@ -59,15 +67,16 @@ class DeckLoader:
             
         for filename in os.listdir(self.deck_folder_path):
             if filename.endswith('.json'):
-                deck_name = os.path.splitext(filename)[0]
                 filepath = os.path.join(self.deck_folder_path, filename)
                 with open(filepath, 'r') as f:
-                    card_ids = json.load(f)
+                    deck_data = json.load(f)
                 
-                is_valid, reason = self.validator.validate(card_ids)
+                is_valid, reason = self.validator.validate(deck_data)
+                deck_name = deck_data.get("deckName", filename)
                 if is_valid:
-                    print(f"  > '{deck_name}' loaded successfully.")
-                    loaded_decks[deck_name] = card_ids
+                    print(f"  > '{deck_name}' ({deck_data.get('class')}) loaded successfully.")
+                    # Use filename as the key, and store the whole data object
+                    loaded_decks[filename] = deck_data
                 else:
                     print(f"  > Skipped '{deck_name}': {reason}")
         
