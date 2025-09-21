@@ -11,12 +11,12 @@ from games.sv.utils.deck_builder import DeckLoader
 
 def launch():
     """
-    Shows a wizard-style menu to configure and launch a classic Shadowverse game.
+    Shows a wizard-style menu to configure and launch a Shadowverse: Worlds Beyond game.
     """
-    print("\n--- Shadowverse Classic Game Setup ---")
+    print("\n--- Shadowverse: Worlds Beyond Game Setup ---")
     
-    # This launcher is now hard-coded to the 'SV' game mode.
-    game_mode = 'SV'
+    # This launcher is hard-coded to the 'SVWB' game mode.
+    game_mode = 'SVWB'
 
     # 1. Load the database and all valid decks
     try:
@@ -53,15 +53,13 @@ def launch():
         deck2_filename = questionary.select("Select Player 2's deck:", choices=deck_choices).ask()
         if deck2_filename is None: return
 
-        # The mode selection prompt has been removed.
-
         # 3. Confirmation
         deck1_data = deck_loader.valid_decks[deck1_filename]
         deck2_data = deck_loader.valid_decks[deck2_filename]
         confirm_message = (f"Start Simulation?\n"
                          f"  - P1: {agent1_type} ({deck1_data['deckName']})\n"
                          f"  - P2: {agent2_type} ({deck2_data['deckName']})\n"
-                         f"  - Mode: {game_mode}")
+                         f"  - Mode: {game_mode}") # Display the mode
         confirm = questionary.confirm(confirm_message).ask()
         if confirm is None: return
         
