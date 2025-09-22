@@ -1,6 +1,7 @@
 import random
 from typing import List
 
+# --- IMPORTS CORRECTED HERE ---
 from framework.core.game_state import GameState
 from framework.simulation.action import Action
 from .base_agent import BaseAgent
@@ -13,6 +14,5 @@ class SimpleAiAgent(BaseAgent):
         """
         Chooses a random action from the list of possible actions.
         """
-        # For now, the "strategy" is to simply pick a random available move.
         chosen_action = random.choice(possible_actions)
         return chosen_action

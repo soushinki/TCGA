@@ -43,6 +43,12 @@ class GameSimulator:
                 break
 
             chosen_action = active_agent.choose_action(self.game_state, possible_actions)
+
+            # --- NEW: Check for the "quit to menu" signal ---
+            if chosen_action is None:
+                print("\n--- Game aborted by user. Returning to main menu. ---")
+                return # Exit the run method and go back to the menu
+
             print(f"Agent '{active_agent.name}' chose action: {chosen_action}")
             
             self.game_engine.apply_action(self.game_state, chosen_action)

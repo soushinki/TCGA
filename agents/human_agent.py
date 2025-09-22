@@ -1,5 +1,7 @@
+import sys
 from typing import List
 
+# --- IMPORTS CORRECTED HERE ---
 from framework.core.game_state import GameState
 from framework.simulation.action import Action
 from .base_agent import BaseAgent
@@ -10,22 +12,29 @@ class HumanAgent(BaseAgent):
     """
     def choose_action(self, game_state: GameState, possible_actions: List[Action]) -> Action:
         """
-        Prompts the human player to choose an action from the list of possibilities.
+        Prompts the human player to choose an action.
+        Returns the chosen action, or None if the player wants to quit to menu.
         """
         print(f"\n{self.name}, it's your turn. Choose an action:")
         for i, action in enumerate(possible_actions):
             print(f"  {i}: {action}")
+        
+        prompt = "Enter the number of your choice (q to quit to menu, Ctrl+C to exit program): "
 
         while True:
             try:
-                choice_index = int(input("Enter the number of your choice: "))
+                user_input = input(prompt)
+                
+                if user_input.lower() == 'q':
+                    return None # Return the "quit to menu" signal
+
+                choice_index = int(user_input)
                 if 0 <= choice_index < len(possible_actions):
                     return possible_actions[choice_index]
                 else:
                     print("Invalid number. Please choose from the list.")
             except ValueError:
-                print("Invalid input. Please enter a number.")
+                print("Invalid input. Please enter a number or 'q'.")
             except (KeyboardInterrupt, EOFError):
-                print("\nExiting.")
-                # Default to the first action on exit.
-                return possible_actions[0]
+                print("\n\nExiting application...")
+                sys.exit()
