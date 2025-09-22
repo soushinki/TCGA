@@ -12,12 +12,13 @@ class HumanAgent(BaseAgent):
     """
     def choose_action(self, game_state: GameState, possible_actions: List[Action]) -> Action:
         """
-        Prompts the human player to choose an action.
-        Returns the chosen action, or None if the player wants to quit to menu.
+        Prompts the human player to choose an action from the list of possibilities.
         """
         print(f"\n{self.name}, it's your turn. Choose an action:")
+        # --- THIS IS THE ONLY CHANGE ---
+        # We now call the new to_repr() method and pass the game_state
         for i, action in enumerate(possible_actions):
-            print(f"  {i}: {action}")
+            print(f"  {i}: {action.to_repr(game_state)}")
         
         prompt = "Enter the number of your choice (q to quit to menu, Ctrl+C to exit program): "
 
