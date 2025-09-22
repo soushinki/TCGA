@@ -6,26 +6,25 @@ class Zone:
     Represents a generic area in the game that can hold cards, such as
     the Hand, Graveyard, or Battlefield.
     """
-    def __init__(self, name: str):
-        """
-        Initializes a Zone instance.
-
-        Args:
-            name (str): The name of the zone (e.g., "Hand").
-        """
+    def __init__(self, name: str, owner: 'Player' = None): # Add owner to constructor
         self.name = name
         self.cards: List[Card] = []
+        self.owner = owner # Store the owner of the zone
 
     def add(self, card: Card):
-        """Adds a card to this zone."""
+        """Adds a card to this zone and sets its owner."""
         if not isinstance(card, Card):
             raise TypeError("Only Card objects can be added to a Zone.")
+        # --- NEW LOGIC ---
+        # A card's owner is the owner of the zone it is in.
+        card.owner = self.owner
         self.cards.append(card)
 
     def remove(self, card: Card):
         """Removes a card from this zone."""
         if card in self.cards:
             self.cards.remove(card)
+            card.owner = None # Clear owner when it leaves a zone
         else:
             raise ValueError(f"Card {card} not found in zone {self.name}.")
 

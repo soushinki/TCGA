@@ -1,4 +1,10 @@
-from ....framework.core.player import Player
+# --- IMPORTS CORRECTED HERE ---
+from framework.core.player import Player
+
+# Forward reference to avoid circular import with SvEngine
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ..engine import SvEngine
 
 class ScriptAPI:
     """

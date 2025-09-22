@@ -8,15 +8,13 @@ class Deck(Zone):
     Represents a player's deck of cards. It is a specialized Zone
     with added functionality for shuffling and drawing.
     """
-    def __init__(self, cards: List[Card] = None):
-        """
-        Initializes a Deck instance.
-
-        Args:
-            cards (List[Card], optional): A list of cards to populate the deck.
-        """
-        super().__init__("Deck")
+    def __init__(self, cards: List[Card] = None, owner: 'Player' = None): # Add owner
+        # --- PASS OWNER TO PARENT ---
+        super().__init__("Deck", owner=owner)
         if cards:
+            # Manually set owner for initial cards
+            for card in cards:
+                card.owner = self.owner
             self.cards = list(cards)
 
     def shuffle(self):

@@ -15,15 +15,13 @@ class Player:
     def __init__(self, name: str, life: int = 20):
         self.name = name
         self.life = life
+        # --- ZONES NOW GET AN OWNER ---
         self.zones: Dict[str, Zone] = {
-            "Hand": Zone("Hand"),
-            "Graveyard": Zone("Graveyard"),
-            "Deck": Deck(),
-            # Add the board as a standard zone for followers/amulets
-            "Board": Zone("Board")
+            "Hand": Zone("Hand", owner=self),
+            "Graveyard": Zone("Graveyard", owner=self),
+            "Deck": Deck(owner=self), # Deck needs owner too
+            "Board": Zone("Board", owner=self)
         }
-        # --- NEW ATTRIBUTE ADDED HERE ---
-        # This will hold the game-specific resource manager instance
         self.resources: Optional['BaseResourceManager'] = None
 
     # ... (properties and other methods are unchanged)
