@@ -25,7 +25,11 @@ class GameSimulator:
             active_player = self.game_state.active_player
             active_agent = next(agent for agent in self.agents if agent.name == active_player.name)
             
-            # --- GAME PACING FIX ---
+            # --- FIX #1: CALL START_TURN FOR RESOURCE UPDATES ---
+            # This will increment max PP, refill PP, and handle EP gain.
+            if active_player.resources:
+                active_player.resources.start_turn()
+
             # Player draws a card at the start of their turn.
             active_player.draw_card()
             

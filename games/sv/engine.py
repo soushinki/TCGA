@@ -105,8 +105,21 @@ class SvEngine(BaseGameEngine):
                     self.trigger_manager.post_event("on_evolve", card=target)
 
     def check_win_condition(self, game_state: GameState) -> Optional[Player]:
+        """
+        A player wins if their opponent's life is 0 or less,
+        OR if the opponent has decked out.
+        """
         for player in game_state.players:
             opponent = next(p for p in game_state.players if p is not player)
+            
+            # Check for life total win
             if opponent.life <= 0:
-                return player
-        return None
+                print(f"--- Win Condition Met: {opponent.name}'s life is {opponent.life} ---")
+                return player # This player is the winner
+
+            # --- NEW: Check for deck out win ---
+            if opponent.has_decked_out:
+                print(f"--- Win Condition Met: {opponent.name} has decked out ---")
+                return player # This player is the winner
+
+        return None # No winner yet

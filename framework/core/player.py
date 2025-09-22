@@ -23,6 +23,8 @@ class Player:
             "Board": Zone("Board", owner=self)
         }
         self.resources: Optional['BaseResourceManager'] = None
+        # --- NEW ATTRIBUTE ---
+        self.has_decked_out: bool = False
 
     # ... (properties and other methods are unchanged)
     @property
@@ -46,11 +48,14 @@ class Player:
         self.deck.shuffle()
 
     def draw_card(self):
+        """Draws a card from the deck and puts it into the hand."""
         card = self.deck.draw()
         if card:
             self.hand.add(card)
         else:
-            print(f"!!! {self.name}'s deck is empty. Cannot draw a card.")
+            # --- SET THE DECK-OUT FLAG ---
+            self.has_decked_out = True
+            print(f"!!! {self.name}'s deck is empty. They will lose if the turn ends!")
         return card
 
     def __repr__(self) -> str:
