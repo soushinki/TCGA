@@ -56,6 +56,7 @@ class SvEngine(BaseGameEngine):
         
         # --- ATTACK LOGIC RESTORED AND IMPLEMENTED ---
         elif action.action_type == "ATTACK":
+            player = next(p for p in game_state.players if p.name == action.player_id)
             attacker = next((c for c in player.board.get_cards() if c.instance_id == action.details['attacker_id']), None)
             opponent = next(p for p in game_state.players if p is not player)
             target_id = action.details['target_id']
@@ -65,6 +66,9 @@ class SvEngine(BaseGameEngine):
 
             if attacker and target:
                 print(f"{attacker.name} ({attacker.get_property('atk')}/{attacker.get_property('def')}) attacks {target.name if isinstance(target, Player) else target.name}!")
+                
+                # --- NEW: Increment the attack counter ---
+                attacker.attacks_made_this_turn += 1
                 
                 # Deal damage
                 if isinstance(target, Player):

@@ -1,7 +1,6 @@
 import uuid
 from typing import Optional
 
-# Forward reference for type hinting Player without circular imports
 'Player'
 
 class Card:
@@ -13,15 +12,19 @@ class Card:
         self.card_id = card_id
         self.name = name
         self.properties = properties if properties is not None else {}
-        
-        # --- NEW ATTRIBUTE ---
-        # This will be set by a Zone when a card enters it.
         self.owner: Optional['Player'] = None
 
+        # --- NEW ATTRIBUTES FOR FLEXIBLE ATTACK LOGIC ---
+        # Tracks how many times this follower has attacked this turn.
+        self.attacks_made_this_turn: int = 0
+        
+        # Most followers can only attack once. This can be overridden by card effects.
+        # We can get this from properties, but a direct attribute is also fine for now.
+        self.max_attacks_per_turn: int = self.properties.get("max_attacks", 1)
+
+
     def get_property(self, key: str, default=None):
-        """Safely retrieves a property from the card."""
         return self.properties.get(key, default)
 
     def __repr__(self) -> str:
-        """Provides a developer-friendly string representation of the card."""
         return f"Card(ID: {self.card_id}, Name: '{self.name}')"

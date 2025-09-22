@@ -31,14 +31,17 @@ class SvResourceManager(BaseResourceManager):
 
     def start_turn(self):
         """
-        Increments max PP, refills PP, and checks if Evolve Points should be granted.
+        Increments max PP, refills PP, and resets follower attack counters.
         """
-        # Increment and refill Play Points
         if self.max_pp < 10:
             self.max_pp += 1
         self.pp = self.max_pp
 
-        # In classic SV, EP is granted on turn 4 or 5
+        # --- UPDATED LOGIC ---
+        # Reset the attack counter for all followers on the board.
+        for follower in self.player.board.get_cards():
+            follower.attacks_made_this_turn = 0
+        
         if self.game_mode == 'SV':
             turn_to_evolve = 5 if self.is_first_player else 4
             if self.game_state.turn_number == turn_to_evolve:

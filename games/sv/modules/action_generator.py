@@ -25,9 +25,19 @@ class SvActionGenerator(BaseActionGenerator):
                     ))
 
         # 2. Generate "Attack" actions
-        attackers = [f for f in player.board.get_cards() if f.get_property("can_attack", True)]
+        # --- RULE ENFORCED WITH NEW COUNTER ---
+        attackers = [
+            f for f in player.board.get_cards()
+            if f.get_property("can_attack", True) and f.attacks_made_this_turn < f.max_attacks_per_turn
+        ]
+        
         opponent = next(p for p in game_state.players if p is not player)
-        valid_targets = opponent.board.get_cards() + [opponent]
+        ward_followers = [f for f in opponent.board.get_cards() if "Ward" in f.get_property("effect_text", "")]
+        
+        if ward_followers:
+            valid_targets = ward_followers
+        else:
+            valid_targets = opponent.board.get_cards() + [opponent]
 
         for attacker in attackers:
             for target in valid_targets:
