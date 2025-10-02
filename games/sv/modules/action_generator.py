@@ -50,7 +50,12 @@ class SvActionGenerator(BaseActionGenerator):
 
         # 3. Generate "Evolve" actions
         if resources.can_evolve():
-            evolve_targets = [f for f in player.board.get_cards() if not f.get_property("is_evolved", False)]
+            # --- FIX APPLIED HERE ---
+            # Only allow evolving cards that are of the "Follower" type.
+            evolve_targets = [
+                f for f in player.board.get_cards() 
+                if f.get_property("type") == "Follower" and not f.get_property("is_evolved", False)
+            ]
             for target in evolve_targets:
                 actions.append(Action(
                     player_id=player.name,
@@ -60,7 +65,11 @@ class SvActionGenerator(BaseActionGenerator):
         
         # 4. Generate "Super Evolve" actions
         if resources.can_super_evolve():
-            super_evolve_targets = [f for f in player.board.get_cards() if f.get_property("is_evolved", False)]
+            # --- FIX APPLIED HERE AS WELL ---
+            super_evolve_targets = [
+                f for f in player.board.get_cards() 
+                if f.get_property("type") == "Follower" and f.get_property("is_evolved", False)
+            ]
             for target in super_evolve_targets:
                  actions.append(Action(
                     player_id=player.name,

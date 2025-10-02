@@ -50,8 +50,19 @@ class SvEngine(BaseGameEngine):
             if card and player.resources.can_play_card(card):
                 player.resources.spend_resources_for_card(card)
                 player.hand.remove(card)
-                player.board.add(card)
                 print(f"{player.name} played {card.name}.")
+
+                # --- FIX APPLIED HERE: Handle card based on its type ---
+                card_type = card.get_property("type")
+
+                if card_type in ["Follower", "Amulet"]:
+                    # Followers and Amulets are placed on the board.
+                    player.board.add(card)
+                else: # Spells
+                    # Spells go directly to the graveyard after being played.
+                    player.graveyard.add(card)
+
+                # The TriggerManager will handle the effect regardless of where the card went.
                 self.trigger_manager.post_event("on_play", card=card)
         
         # --- ATTACK LOGIC RESTORED AND IMPLEMENTED ---
