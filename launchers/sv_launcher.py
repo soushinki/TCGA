@@ -15,7 +15,7 @@ def launch():
     """
     print("\n--- Shadowverse Classic Game Setup ---")
     
-    # This launcher is now hard-coded to the 'SV' game mode.
+    # This launcher is hard-coded to the 'SV' game mode.
     game_mode = 'SV'
 
     # 1. Load the database and all valid decks
@@ -53,7 +53,17 @@ def launch():
         deck2_filename = questionary.select("Select Player 2's deck:", choices=deck_choices).ask()
         if deck2_filename is None: return
 
-        # The mode selection prompt has been removed.
+        # New prompt for logging level
+        log_level = questionary.select(
+            "Select logging level:",
+            choices=[
+                Choice("Pretty (Full visual board)", value="pretty"),
+                Choice("Simple (One-line action log)", value="simple"),
+                Choice("None (Show final result only)", value="none")
+            ],
+            default="pretty"
+        ).ask()
+        if log_level is None: return
 
         # 3. Confirmation
         deck1_data = deck_loader.valid_decks[deck1_filename]
@@ -61,7 +71,7 @@ def launch():
         confirm_message = (f"Start Simulation?\n"
                          f"  - P1: {agent1_type} ({deck1_data['deckName']})\n"
                          f"  - P2: {agent2_type} ({deck2_data['deckName']})\n"
-                         f"  - Mode: {game_mode}")
+                         f"  - Mode: {game_mode} | Log Level: {log_level}")
         confirm = questionary.confirm(confirm_message).ask()
         if confirm is None: return
         
@@ -81,7 +91,7 @@ def launch():
             simulator = GameSimulator(game_engine=game_engine, agents=agents)
             simulator.game_state.players[0].setup_deck(deck1)
             simulator.game_state.players[1].setup_deck(deck2)
-            simulator.run()
+            simulator.run(log_level=log_level)
 
     except KeyboardInterrupt:
         print("\nSetup cancelled.")
