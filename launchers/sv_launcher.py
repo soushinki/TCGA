@@ -15,24 +15,21 @@ def launch():
     """
     print("\n--- Shadowverse Classic Game Setup ---")
     
-    # This launcher is hard-coded to the 'SV' game mode.
     game_mode = 'SV'
 
-    # 1. Load the database and all valid decks
+    # 1. Load data (unchanged)
     try:
         db = CardDatabase('games/sv/database/cards.json')
         deck_loader = DeckLoader('games/sv/decks', db)
         
         if not deck_loader.valid_decks:
-            print("No valid decks found in 'games/sv/decks/'.")
-            questionary.press_any_key_to_continue("Press any key to return...").ask()
+            print("No valid decks found...")
+            questionary.press_any_key_to_continue("...").ask()
             return
 
         deck_choices = [
-            Choice(
-                title=f"{data['deckName']} ({data['class']})", 
-                value=filename
-            ) for filename, data in deck_loader.valid_decks.items()
+            Choice(title=f"{data['deckName']} ({data['class']})", value=filename)
+            for filename, data in deck_loader.valid_decks.items()
         ]
             
     except Exception as e:
@@ -53,19 +50,23 @@ def launch():
         deck2_filename = questionary.select("Select Player 2's deck:", choices=deck_choices).ask()
         if deck2_filename is None: return
 
-        # New prompt for logging level
-        log_level = questionary.select(
-            "Select logging level:",
-            choices=[
-                Choice("Pretty (Full visual board)", value="pretty"),
-                Choice("Simple (One-line action log)", value="simple"),
-                Choice("None (Show final result only)", value="none")
-            ],
-            default="pretty"
-        ).ask()
-        if log_level is None: return
-
-        # 3. Confirmation
+        # --- NEW LOGIC: Conditional Log Level ---
+        log_level = 'pretty' # Default to pretty if a human is playing
+        if agent1_type != 'human' and agent2_type != 'human':
+            # Only ask if both players are AI
+            log_level_choice = questionary.select(
+                "Select logging level:",
+                choices=[
+                    Choice("Pretty (Full visual board)", value="pretty"),
+                    Choice("Simple (One-line action log)", value="simple"),
+                    Choice("None (Show final result only)", value="none")
+                ],
+                default="pretty"
+            ).ask()
+            if log_level_choice is None: return
+            log_level = log_level_choice
+        
+        # 3. Confirmation (unchanged)
         deck1_data = deck_loader.valid_decks[deck1_filename]
         deck2_data = deck_loader.valid_decks[deck2_filename]
         confirm_message = (f"Start Simulation?\n"
@@ -76,7 +77,7 @@ def launch():
         if confirm is None: return
         
         if confirm:
-            # 4. Build the final decks of Card objects and run simulation
+            # 4. Run simulation (unchanged)
             deck1_ids = deck1_data['cardIds']
             deck2_ids = deck2_data['cardIds']
             deck1 = [Card(card_id, db.get_card_data(card_id)['name'], db.get_card_data(card_id)) for card_id in deck1_ids]
