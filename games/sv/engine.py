@@ -60,7 +60,11 @@ class SvEngine(BaseGameEngine):
                 player.hand.remove(card)
                 
                 card_type = card.get_property("type")
-                if card_type in ["Follower", "Amulet"]:
+                if card_type == "Follower":
+                    player.board.add(card)
+                    # --- NEW: Set the turn the follower was played ---
+                    card.turn_played = game_state.turn_number
+                elif card_type == "Amulet":
                     player.board.add(card)
                 else: # Spells
                     player.graveyard.add(card)
@@ -112,6 +116,11 @@ class SvEngine(BaseGameEngine):
                     target.properties['atk'] += 2
                     target.properties['def'] += 2
                     target.properties['is_evolved'] = True
+                    
+                    # --- NEW: Grant temporary Rush effect ---
+                    # The ActionGenerator will check for this property.
+                    target.properties['gained_rush_this_turn'] = True
+                    
                     print(f"{target.name} is now a {target.get_property('atk')}/{target.get_property('def')}.")
                     self.trigger_manager.post_event("on_evolve", card=target)
 
