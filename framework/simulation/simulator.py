@@ -4,7 +4,6 @@ from agents.base_agent import BaseAgent
 from ..core.game_state import GameState
 from ..core.player import Player
 from .base_game_engine import BaseGameEngine
-# --- NEW IMPORT ---
 from ..utils.display import Display
 
 class GameSimulator:
@@ -15,8 +14,6 @@ class GameSimulator:
         self.agents = agents
         players = [Player(name=agent.name) for agent in self.agents]
         self.game_state = GameState(players=players, game_engine=self.game_engine)
-        
-        # --- NEW ---
         self.display = Display()
 
     def run(self, max_turns: int = 50, log_level: str = 'pretty'):
@@ -32,10 +29,9 @@ class GameSimulator:
                 active_player.resources.start_turn()
             active_player.draw_card(self.game_state)
             
-            # Display initial state of the turn for pretty logging
             if log_level == 'pretty':
                 self.display.display_board(self.game_state)
-            else: # For simple log, print the turn start
+            else:
                 print("-" * 30)
                 print(f"Turn {self.game_state.turn_number}: {active_player.name}")
 
@@ -46,13 +42,15 @@ class GameSimulator:
                     break
 
                 chosen_action = active_agent.choose_action(self.game_state, possible_actions)
-                if chosen_action is None:
+                
+                # --- FIX APPLIED HERE ---
+                # Check for the quit signal IMMEDIATELY after the agent makes its choice.
+                if chosen_action == "quit_to_menu":
                     print("\n--- Game aborted by user. Returning to main menu. ---")
-                    return
+                    return # Exit the run method before the action is processed further.
 
                 self.game_engine.apply_action(self.game_state, chosen_action)
                 
-                # --- UPDATED LOGGING LOGIC ---
                 if log_level == 'pretty':
                     self.display.display_board(self.game_state)
                 elif log_level == 'simple':
