@@ -31,14 +31,23 @@ class Display:
         print(f"    {opponent.name:<25} Life: {opponent.life:<5} Deck: {len(opponent.deck):<5} Hand: {len(opponent.hand):<5} {opponent.resources}")
         print("-" * width)
         
+        def format_board_card(card):
+            """Helper to format a card on the board."""
+            if card.get_property('type') == 'Follower':
+                return f"[{card.name} ({card.get_property('atk')}/{card.get_property('def')})]"
+            else: # Amulets
+                return f"[{card.name}]"
+
         # Opponent's Board
-        opponent_board_str = "    " + "   ".join([f"[{card.name} ({card.get_property('atk')}/{card.get_property('def')})]" for card in opponent.board.get_cards()])
-        print(opponent_board_str if opponent.board.get_cards() else "    (Board is empty)")
+        opponent_board_cards = opponent.board.get_cards()
+        opponent_board_str = "    " + "   ".join([format_board_card(c) for c in opponent_board_cards])
+        print(opponent_board_str if opponent_board_cards else "    (Board is empty)")
         print()
 
         # Player's Board
-        player_board_str = "    " + "   ".join([f"[{card.name} ({card.get_property('atk')}/{card.get_property('def')})]" for card in active_player.board.get_cards()])
-        print(player_board_str if active_player.board.get_cards() else "    (Board is empty)")
+        player_board_cards = active_player.board.get_cards()
+        player_board_str = "    " + "   ".join([format_board_card(c) for c in player_board_cards])
+        print(player_board_str if player_board_cards else "    (Board is empty)")
         
         print("-" * width)
         
@@ -46,7 +55,7 @@ class Display:
         print(f"    {active_player.name:<25} Life: {active_player.life:<5} Deck: {len(active_player.deck):<5} Hand: {len(active_player.hand):<5} {active_player.resources}")
         print()
 
-        # --- UPDATED: Display Player's Hand with Stats for Followers ---
+        # Display Player's Hand with Stats for Followers
         hand_cards = active_player.hand.get_cards()
         if hand_cards:
             hand_card_strings = []

@@ -28,7 +28,9 @@ class SvActionGenerator(BaseActionGenerator):
         # --- RULE ENFORCED WITH NEW COUNTER ---
         attackers = [
             f for f in player.board.get_cards()
-            if f.get_property("can_attack", True) and f.attacks_made_this_turn < f.max_attacks_per_turn
+            if f.get_property("type") == "Follower" 
+            and f.get_property("can_attack", True) 
+            and f.attacks_made_this_turn < f.max_attacks_per_turn
         ]
         
         opponent = next(p for p in game_state.players if p is not player)
