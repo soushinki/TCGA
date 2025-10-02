@@ -46,10 +46,21 @@ class Display:
         print(f"    {active_player.name:<25} Life: {active_player.life:<5} Deck: {len(active_player.deck):<5} Hand: {len(active_player.hand):<5} {active_player.resources}")
         print()
 
-        # --- NEW: Display Player's Hand ---
+        # --- UPDATED: Display Player's Hand with Stats for Followers ---
         hand_cards = active_player.hand.get_cards()
         if hand_cards:
-            hand_str = "    " + "   ".join([f"[{card.get_property('cost')}PP {card.name}]" for card in hand_cards])
+            hand_card_strings = []
+            for card in hand_cards:
+                cost = card.get_property('cost')
+                name = card.name
+                if card.get_property('type') == 'Follower':
+                    atk = card.get_property('atk')
+                    defs = card.get_property('def')
+                    hand_card_strings.append(f"[{cost}PP {name} ({atk}/{defs})]")
+                else: # Spells and Amulets
+                    hand_card_strings.append(f"[{cost}PP {name}]")
+            
+            hand_str = "    " + "   ".join(hand_card_strings)
             print(hand_str)
         
         print() # Extra newline for spacing before the next prompt
