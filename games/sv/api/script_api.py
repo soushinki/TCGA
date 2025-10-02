@@ -28,4 +28,4 @@ class ScriptAPI:
         """
         print(f"--- API CALL: {player.name} draws {count} card(s). ---")
         for _ in range(count):
-            player.draw_card()
+            player.draw_card(self.engine.game_state)

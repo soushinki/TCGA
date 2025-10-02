@@ -1,32 +1,24 @@
-from typing import List, Dict, Optional # Optional is new
+from typing import List, Dict, Optional
+
 from .card import Card
 from .deck import Deck
 from .zone import Zone
-
-# We need a forward reference for the type hint, as the files import each other
-# This will resolve to the BaseResourceManager class at runtime.
 'BaseResourceManager'
 
 class Player:
-    """
-    Represents a player in the game. Manages the player's life total,
-    and all zones associated with the player (Hand, Deck, Graveyard).
-    """
     def __init__(self, name: str, life: int = 20):
         self.name = name
         self.life = life
-        # --- ZONES NOW GET AN OWNER ---
         self.zones: Dict[str, Zone] = {
             "Hand": Zone("Hand", owner=self),
             "Graveyard": Zone("Graveyard", owner=self),
-            "Deck": Deck(owner=self), # Deck needs owner too
+            "Deck": Deck(owner=self),
             "Board": Zone("Board", owner=self)
         }
         self.resources: Optional['BaseResourceManager'] = None
-        # --- NEW ATTRIBUTE ---
         self.has_decked_out: bool = False
 
-    # ... (properties and other methods are unchanged)
+    # ... (properties are unchanged)
     @property
     def hand(self) -> Zone:
         return self.zones["Hand"]
@@ -47,15 +39,28 @@ class Player:
         self.deck.cards = cards
         self.deck.shuffle()
 
-    def draw_card(self):
-        """Draws a card from the deck and puts it into the hand."""
+    # --- METHOD UPDATED HERE ---
+    def draw_card(self, game_state: 'GameState'): # Add game_state as an argument
+        """
+        Draws a card from the deck.
+        Checks the hand size limit against the game engine's rule.
+        """
         card = self.deck.draw()
-        if card:
-            self.hand.add(card)
-        else:
-            # --- SET THE DECK-OUT FLAG ---
+        if not card:
             self.has_decked_out = True
             print(f"!!! {self.name}'s deck is empty. They will lose if the turn ends!")
+            return None
+
+        # --- UPDATED LOGIC ---
+        # Get the hand size limit dynamically from the game engine.
+        hand_limit = game_state.game_engine.max_hand_size
+        
+        if len(self.hand) >= hand_limit:
+            print(f"!!! {self.name}'s hand is full (limit: {hand_limit})! '{card.name}' is discarded. !!!")
+            self.graveyard.add(card)
+        else:
+            self.hand.add(card)
+        
         return card
 
     def __repr__(self) -> str:

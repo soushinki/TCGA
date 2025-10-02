@@ -21,9 +21,9 @@ class RuleSetOneEngine(BaseGameEngine):
         # ... (rest of the file is unchanged)
         for player in game_state.players:
             player.life = 10
-            player.draw_card()
-            player.draw_card()
-            player.draw_card()
+            player.draw_card(game_state)
+            player.draw_card(game_state)
+            player.draw_card(game_state)
         print("RuleSetOneEngine: Game setup complete. Players have 10 life and 3 cards.")
 
     def get_possible_actions(self, game_state: GameState) -> List[Action]:
@@ -55,7 +55,7 @@ class RuleSetOneEngine(BaseGameEngine):
                     opponent.life -= 1
                     print(f"{card_to_play.name} deals 1 damage to {opponent.name}. {opponent.name} is at {opponent.life} life.")
                 elif card_to_play.card_id == "DRAW_BOT":
-                    active_player.draw_card()
+                    active_player.draw_card(game_state)
                     print(f"{card_to_play.name} allows {active_player.name} to draw a card.")
             else:
                 print(f"ERROR: Card with instance ID {card_instance_id} not found in hand.")

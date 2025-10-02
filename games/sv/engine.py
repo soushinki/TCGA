@@ -18,6 +18,7 @@ class SvEngine(BaseGameEngine):
     def __init__(self, game_mode: str):
         super().__init__(game_mode)
         
+        self.max_hand_size = 9 # Shadowverse hand limit
         self.game_state: Optional[GameState] = None
         self.action_generator = SvActionGenerator(game_mode)
         self.script_api = ScriptAPI(self)
@@ -31,8 +32,8 @@ class SvEngine(BaseGameEngine):
             player.resources = SvResourceManager(player, game_state, self.game_mode)
             player.life = 20
             for _ in range(hand_size):
-                player.draw_card()
-        game_state.players[1].draw_card()
+                player.draw_card(game_state)
+        game_state.players[1].draw_card(game_state)
 
     def get_possible_actions(self, game_state: GameState) -> List[Action]:
         active_player = game_state.active_player

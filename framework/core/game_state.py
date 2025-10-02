@@ -8,7 +8,7 @@ class GameState:
     This is the top-level container that holds all players, tracks the
     current turn, and manages any global game zones.
     """
-    def __init__(self, players: List[Player]):
+    def __init__(self, players: List[Player], game_engine: 'BaseGameEngine'):
         """
         Initializes the GameState.
 
@@ -19,6 +19,7 @@ class GameState:
             raise ValueError("GameState requires at least one player.")
         
         self.players = players
+        self.game_engine = game_engine
         self.turn_number = 0
         self.active_player_index = -1 # No active player until the game starts
 

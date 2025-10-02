@@ -14,7 +14,8 @@ class GameSimulator:
         self.game_engine = game_engine
         self.agents = agents
         players = [Player(name=agent.name) for agent in self.agents]
-        self.game_state = GameState(players=players)
+        self.game_state = GameState(players=players, game_engine=self.game_engine)
+        
         # --- NEW ---
         self.display = Display()
 
@@ -29,7 +30,7 @@ class GameSimulator:
             
             if active_player.resources:
                 active_player.resources.start_turn()
-            active_player.draw_card()
+            active_player.draw_card(self.game_state)
             
             # Display initial state of the turn for pretty logging
             if log_level == 'pretty':

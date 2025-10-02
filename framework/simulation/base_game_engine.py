@@ -20,6 +20,9 @@ class BaseGameEngine(ABC):
         """
         self.game_mode = game_mode
 
+        # Define a default, which can be overridden by specific engines.
+        self.max_hand_size: int = 9 
+
     @abstractmethod
     def setup_game(self, game_state: GameState):
         pass
