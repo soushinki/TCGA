@@ -14,11 +14,15 @@ from .api.script_api import ScriptAPI
 class SvEngine(BaseGameEngine):
     """
     The concrete game engine for Shadowverse and Shadowverse: Worlds Beyond.
+    It assembles the various game logic modules and enforces the game's rules.
     """
     def __init__(self, game_mode: str):
         super().__init__(game_mode)
+        if game_mode not in ['SV', 'SVWB']:
+            raise ValueError("Invalid game mode specified for SvEngine.")
         
         self.max_hand_size = 9 # Shadowverse hand limit
+        
         self.game_state: Optional[GameState] = None
         self.action_generator = SvActionGenerator(game_mode)
         self.script_api = ScriptAPI(self)
@@ -33,6 +37,7 @@ class SvEngine(BaseGameEngine):
             player.life = 20
             for _ in range(hand_size):
                 player.draw_card(game_state)
+        # The second player draws an additional card at the start of the game
         game_state.players[1].draw_card(game_state)
 
     def get_possible_actions(self, game_state: GameState) -> List[Action]:
@@ -41,6 +46,7 @@ class SvEngine(BaseGameEngine):
 
     def apply_action(self, game_state: GameState, action: Action):
         player = next(p for p in game_state.players if p.name == action.player_id)
+        resources: SvResourceManager = player.resources
 
         if action.action_type == "END_TURN":
             return
@@ -48,27 +54,21 @@ class SvEngine(BaseGameEngine):
         elif action.action_type == "PLAY_CARD":
             card_id = action.details['card_instance_id']
             card = next((c for c in player.hand.get_cards() if c.instance_id == card_id), None)
-            if card and player.resources.can_play_card(card):
-                player.resources.spend_resources_for_card(card)
+            
+            if card and resources.can_play_card(card):
+                resources.spend_resources_for_card(card)
                 player.hand.remove(card)
-                print(f"{player.name} played {card.name}.")
-
-                # --- FIX APPLIED HERE: Handle card based on its type ---
+                
                 card_type = card.get_property("type")
-
                 if card_type in ["Follower", "Amulet"]:
-                    # Followers and Amulets are placed on the board.
                     player.board.add(card)
                 else: # Spells
-                    # Spells go directly to the graveyard after being played.
                     player.graveyard.add(card)
-
-                # The TriggerManager will handle the effect regardless of where the card went.
+                
+                print(f"{player.name} played {card.name}.")
                 self.trigger_manager.post_event("on_play", card=card)
         
-        # --- ATTACK LOGIC RESTORED AND IMPLEMENTED ---
         elif action.action_type == "ATTACK":
-            player = next(p for p in game_state.players if p.name == action.player_id)
             attacker = next((c for c in player.board.get_cards() if c.instance_id == action.details['attacker_id']), None)
             opponent = next(p for p in game_state.players if p is not player)
             target_id = action.details['target_id']
@@ -77,19 +77,17 @@ class SvEngine(BaseGameEngine):
                 target = opponent
 
             if attacker and target:
-                print(f"{attacker.name} ({attacker.get_property('atk')}/{attacker.get_property('def')}) attacks {target.name if isinstance(target, Player) else target.name}!")
-                
-                # --- NEW: Increment the attack counter ---
+                attacker_atk = attacker.get_property('atk', 0)
+                print(f"{attacker.name} ({attacker_atk}/{attacker.get_property('def', 0)}) attacks {target.name if isinstance(target, Player) else target.name}!")
                 attacker.attacks_made_this_turn += 1
                 
-                # Deal damage
                 if isinstance(target, Player):
-                    target.life -= attacker.get_property('atk', 0)
+                    target.life -= attacker_atk
                 else: # Target is a follower
-                    target.properties['def'] -= attacker.get_property('atk', 0)
-                    attacker.properties['def'] -= target.get_property('atk', 0)
+                    target_atk = target.get_property('atk', 0)
+                    target.properties['def'] -= attacker_atk
+                    attacker.properties['def'] -= target_atk
                 
-                # Check for destroyed followers
                 if not isinstance(target, Player) and target.get_property('def', 0) <= 0:
                     opponent.board.remove(target)
                     opponent.graveyard.add(target)
@@ -102,40 +100,38 @@ class SvEngine(BaseGameEngine):
                     print(f"{attacker.name} was destroyed.")
                     self.trigger_manager.post_event("on_destroy", card=attacker)
         
-        # --- EVOLVE LOGIC RESTORED AND IMPLEMENTED ---
         elif action.action_type == "EVOLVE":
-            if player.resources.can_evolve():
-                player.resources.spend_ep()
+            if resources.can_evolve():
+                resources.has_evolved_this_turn = True
+                resources.spend_ep()
                 target_id = action.details['target_id']
                 target = next((c for c in player.board.get_cards() if c.instance_id == target_id), None)
                 if target:
                     print(f"{player.name} evolves {target.name}!")
                     
-                    # Apply default +2/+2 stat boost
                     target.properties['atk'] += 2
                     target.properties['def'] += 2
                     target.properties['is_evolved'] = True
                     print(f"{target.name} is now a {target.get_property('atk')}/{target.get_property('def')}.")
-
-                    # Post an on_evolve event for the TriggerManager to handle
                     self.trigger_manager.post_event("on_evolve", card=target)
 
+        elif action.action_type == "SUPER_EVOLVE":
+            if resources.can_super_evolve():
+                resources.has_evolved_this_turn = True
+                resources.spend_sep()
+                # TODO: Implement Super Evolve logic (stats, effects)
+                print("--- Super Evolve logic not fully implemented yet. ---")
+
     def check_win_condition(self, game_state: GameState) -> Optional[Player]:
-        """
-        A player wins if their opponent's life is 0 or less,
-        OR if the opponent has decked out.
-        """
         for player in game_state.players:
             opponent = next(p for p in game_state.players if p is not player)
             
-            # Check for life total win
             if opponent.life <= 0:
                 print(f"--- Win Condition Met: {opponent.name}'s life is {opponent.life} ---")
-                return player # This player is the winner
+                return player
 
-            # --- NEW: Check for deck out win ---
             if opponent.has_decked_out:
                 print(f"--- Win Condition Met: {opponent.name} has decked out ---")
-                return player # This player is the winner
+                return player
 
-        return None # No winner yet
+        return None

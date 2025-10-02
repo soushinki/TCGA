@@ -18,6 +18,7 @@ class SvResourceManager(BaseResourceManager):
         # Evolution resources are mode-dependent
         self.ep: int = 0
         self.sep: int = 0 # Only used in SVWB
+        self.has_evolved_this_turn: bool = False
 
         # Determine if this player is going first or second
         self.is_first_player = (self.game_state.players[0] == self.player)
@@ -41,6 +42,8 @@ class SvResourceManager(BaseResourceManager):
         # Reset the attack counter for all followers on the board.
         for follower in self.player.board.get_cards():
             follower.attacks_made_this_turn = 0
+        
+        self.has_evolved_this_turn = False
         
         if self.game_mode == 'SV':
             turn_to_evolve = 5 if self.is_first_player else 4
@@ -67,8 +70,10 @@ class SvResourceManager(BaseResourceManager):
     def can_evolve(self) -> bool:
         """Checks if the player can perform a classic evolution."""
         turn_to_evolve = 5 if self.is_first_player else 4
-        return self.ep > 0 and self.game_state.turn_number >= turn_to_evolve
-
+        return (not self.has_evolved_this_turn and 
+                self.ep > 0 and 
+                self.game_state.turn_number >= turn_to_evolve)
+    
     def spend_ep(self, amount: int = 1):
         """Spends a classic Evolve Point."""
         if self.ep >= amount:
@@ -79,6 +84,7 @@ class SvResourceManager(BaseResourceManager):
     def can_super_evolve(self) -> bool:
         """Checks if the player can perform a Super Evolution."""
         return (self.game_mode == 'SVWB' and 
+                not self.has_evolved_this_turn and 
                 self.sep > 0 and 
                 self.game_state.turn_number >= 7)
 
