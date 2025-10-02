@@ -20,7 +20,6 @@ class Display:
         active_player = game_state.active_player
         opponent = next(p for p in game_state.players if p is not active_player)
 
-        # Get terminal width for dynamic separators
         width = shutil.get_terminal_size((80, 20)).columns
         
         print("=" * width)
@@ -34,14 +33,23 @@ class Display:
         
         # Opponent's Board
         opponent_board_str = "    " + "   ".join([f"[{card.name} ({card.get_property('atk')}/{card.get_property('def')})]" for card in opponent.board.get_cards()])
-        print(opponent_board_str if opponent.board.get_cards() else "")
+        print(opponent_board_str if opponent.board.get_cards() else "    (Board is empty)")
         print()
 
         # Player's Board
         player_board_str = "    " + "   ".join([f"[{card.name} ({card.get_property('atk')}/{card.get_property('def')})]" for card in active_player.board.get_cards()])
-        print(player_board_str if active_player.board.get_cards() else "")
+        print(player_board_str if active_player.board.get_cards() else "    (Board is empty)")
         
         print("-" * width)
+        
         # Player Info
         print(f"    {active_player.name:<25} Life: {active_player.life:<5} Deck: {len(active_player.deck):<5} Hand: {len(active_player.hand):<5} {active_player.resources}")
         print()
+
+        # --- NEW: Display Player's Hand ---
+        hand_cards = active_player.hand.get_cards()
+        if hand_cards:
+            hand_str = "    " + "   ".join([f"[{card.get_property('cost')}PP {card.name}]" for card in hand_cards])
+            print(hand_str)
+        
+        print() # Extra newline for spacing before the next prompt
