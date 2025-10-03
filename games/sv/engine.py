@@ -65,7 +65,7 @@ class SvEngine(BaseGameEngine):
                 else:
                     player.graveyard.add(card)
                 
-                print(f"{player.name} played {card.name}.")
+                # self.trigger_manager is now the only one that prints during an action
                 self.trigger_manager.post_event("on_play", card=card)
         
         elif action.action_type == "ATTACK":
@@ -77,29 +77,22 @@ class SvEngine(BaseGameEngine):
                 target = opponent
 
             if attacker and target:
-                attacker_atk = attacker.get_property('atk', 0)
-                print(f"{attacker.name} ({attacker_atk}/{attacker.get_property('def', 0)}) attacks {target.name if isinstance(target, Player) else target.name}!")
                 attacker.attacks_made_this_turn += 1
                 
                 if isinstance(target, Player):
-                    target.life -= attacker_atk
+                    target.life -= attacker.get_property('atk', 0)
                 else:
-                    target_atk = target.get_property('atk', 0)
-                    target.properties['def'] -= attacker_atk
-                    attacker.properties['def'] -= target_atk
+                    target.properties['def'] -= attacker.get_property('atk', 0)
+                    attacker.properties['def'] -= target.get_property('atk', 0)
                 
-                # --- FIX APPLIED HERE ---
-                # Check for destroyed followers from both sides of combat.
                 if not isinstance(target, Player) and target.get_property('def', 0) <= 0:
                     opponent.board.remove(target)
                     opponent.graveyard.add(target)
-                    print(f"{target.name} was destroyed.")
                     self.trigger_manager.post_event("on_destroy", card=target)
 
                 if attacker.get_property('def', 0) <= 0:
                     player.board.remove(attacker)
                     player.graveyard.add(attacker)
-                    print(f"{attacker.name} was destroyed.")
                     self.trigger_manager.post_event("on_destroy", card=attacker)
         
         elif action.action_type == "EVOLVE":
@@ -109,32 +102,26 @@ class SvEngine(BaseGameEngine):
                 target_id = action.details['target_id']
                 target = next((c for c in player.board.get_cards() if c.instance_id == target_id), None)
                 if target:
-                    print(f"{player.name} evolves {target.name}!")
-                    
                     target.properties['atk'] += 2
                     target.properties['def'] += 2
                     target.properties['is_evolved'] = True
                     target.properties['gained_rush_this_turn'] = True
-                    
-                    print(f"{target.name} is now a {target.get_property('atk')}/{target.get_property('def')}.")
                     self.trigger_manager.post_event("on_evolve", card=target)
 
         elif action.action_type == "SUPER_EVOLVE":
             if resources.can_super_evolve():
                 resources.has_evolved_this_turn = True
                 resources.spend_sep()
-                print("--- Super Evolve logic not fully implemented yet. ---")
+                # TODO: Implement Super Evolve logic
 
     def check_win_condition(self, game_state: GameState) -> Optional[Player]:
         for player in game_state.players:
             opponent = next(p for p in game_state.players if p is not player)
             
             if opponent.life <= 0:
-                print(f"--- Win Condition Met: {opponent.name}'s life is {opponent.life} ---")
                 return player
 
             if opponent.has_decked_out:
-                print(f"--- Win Condition Met: {opponent.name} has decked out ---")
                 return player
 
         return None

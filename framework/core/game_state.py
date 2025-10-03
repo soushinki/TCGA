@@ -46,8 +46,6 @@ class GameState:
         if self.active_player_index == 0:
             self.turn_number += 1
 
-        print(f"Turn {self.turn_number}: It is now {self.active_player.name}'s turn.")
-
     def __repr__(self) -> str:
         """Provides a developer-friendly string representation of the game state."""
         return (f"GameState(Turn: {self.turn_number}, "

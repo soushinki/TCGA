@@ -31,30 +31,25 @@ class GameSimulator:
             
             if log_level == 'pretty':
                 self.display.display_board(self.game_state)
-            else:
-                print("-" * 30)
-                print(f"Turn {self.game_state.turn_number}: {active_player.name}")
+            elif log_level == 'simple':
+                self.display.display_turn_summary(self.game_state)
 
-            # Inner loop for player's turn
             while True:
                 possible_actions = self.game_engine.get_possible_actions(self.game_state)
                 if not possible_actions:
                     break
 
                 chosen_action = active_agent.choose_action(self.game_state, possible_actions)
-                
-                # --- FIX APPLIED HERE ---
-                # Check for the quit signal IMMEDIATELY after the agent makes its choice.
                 if chosen_action == "quit_to_menu":
                     print("\n--- Game aborted by user. Returning to main menu. ---")
-                    return # Exit the run method before the action is processed further.
+                    return
 
                 self.game_engine.apply_action(self.game_state, chosen_action)
                 
                 if log_level == 'pretty':
                     self.display.display_board(self.game_state)
                 elif log_level == 'simple':
-                    print(f"  > {chosen_action.to_repr(self.game_state)}")
+                    print(f"  {active_player.name}: {chosen_action.to_repr(self.game_state)}")
 
                 winner = self.game_engine.check_win_condition(self.game_state)
                 if winner:
