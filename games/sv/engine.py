@@ -14,14 +14,13 @@ from .api.script_api import ScriptAPI
 class SvEngine(BaseGameEngine):
     """
     The concrete game engine for Shadowverse and Shadowverse: Worlds Beyond.
-    It assembles the various game logic modules and enforces the game's rules.
     """
     def __init__(self, game_mode: str):
         super().__init__(game_mode)
         if game_mode not in ['SV', 'SVWB']:
             raise ValueError("Invalid game mode specified for SvEngine.")
         
-        self.max_hand_size = 9 # Shadowverse hand limit
+        self.max_hand_size = 9
         
         self.game_state: Optional[GameState] = None
         self.action_generator = SvActionGenerator(game_mode)
@@ -37,7 +36,6 @@ class SvEngine(BaseGameEngine):
             player.life = 20
             for _ in range(hand_size):
                 player.draw_card(game_state)
-        # The second player draws an additional card at the start of the game
         game_state.players[1].draw_card(game_state)
 
     def get_possible_actions(self, game_state: GameState) -> List[Action]:
@@ -60,13 +58,11 @@ class SvEngine(BaseGameEngine):
                 player.hand.remove(card)
                 
                 card_type = card.get_property("type")
-                if card_type == "Follower":
+                if card_type in ["Follower", "Amulet"]:
                     player.board.add(card)
-                    # --- NEW: Set the turn the follower was played ---
-                    card.turn_played = game_state.turn_number
-                elif card_type == "Amulet":
-                    player.board.add(card)
-                else: # Spells
+                    if card_type == "Follower":
+                        card.turn_played = game_state.turn_number
+                else:
                     player.graveyard.add(card)
                 
                 print(f"{player.name} played {card.name}.")
@@ -87,11 +83,13 @@ class SvEngine(BaseGameEngine):
                 
                 if isinstance(target, Player):
                     target.life -= attacker_atk
-                else: # Target is a follower
+                else:
                     target_atk = target.get_property('atk', 0)
                     target.properties['def'] -= attacker_atk
                     attacker.properties['def'] -= target_atk
                 
+                # --- FIX APPLIED HERE ---
+                # Check for destroyed followers from both sides of combat.
                 if not isinstance(target, Player) and target.get_property('def', 0) <= 0:
                     opponent.board.remove(target)
                     opponent.graveyard.add(target)
@@ -116,9 +114,6 @@ class SvEngine(BaseGameEngine):
                     target.properties['atk'] += 2
                     target.properties['def'] += 2
                     target.properties['is_evolved'] = True
-                    
-                    # --- NEW: Grant temporary Rush effect ---
-                    # The ActionGenerator will check for this property.
                     target.properties['gained_rush_this_turn'] = True
                     
                     print(f"{target.name} is now a {target.get_property('atk')}/{target.get_property('def')}.")
@@ -128,7 +123,6 @@ class SvEngine(BaseGameEngine):
             if resources.can_super_evolve():
                 resources.has_evolved_this_turn = True
                 resources.spend_sep()
-                # TODO: Implement Super Evolve logic (stats, effects)
                 print("--- Super Evolve logic not fully implemented yet. ---")
 
     def check_win_condition(self, game_state: GameState) -> Optional[Player]:

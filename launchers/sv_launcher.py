@@ -1,5 +1,6 @@
 import questionary
 from questionary import Choice
+import copy
 
 from framework.core.card import Card
 from framework.simulation.simulator import GameSimulator
@@ -80,9 +81,9 @@ def launch():
             # 4. Run simulation (unchanged)
             deck1_ids = deck1_data['cardIds']
             deck2_ids = deck2_data['cardIds']
-            deck1 = [Card(card_id, db.get_card_data(card_id)['name'], db.get_card_data(card_id)) for card_id in deck1_ids]
-            deck2 = [Card(card_id, db.get_card_data(card_id)['name'], db.get_card_data(card_id)) for card_id in deck2_ids]
-            
+            deck1 = [Card(card_id, db.get_card_data(card_id)['name'], copy.deepcopy(db.get_card_data(card_id))) for card_id in deck1_ids]
+            deck2 = [Card(card_id, db.get_card_data(card_id)['name'], copy.deepcopy(db.get_card_data(card_id))) for card_id in deck2_ids]
+        
             agent_map = {'simple_ai': SimpleAiAgent, 'human': HumanAgent}
             agents = [
                 agent_map[agent1_type](f"Player 1 ({agent1_type.upper()})"),

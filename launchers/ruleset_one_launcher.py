@@ -2,6 +2,7 @@ from framework.core.card import Card
 from framework.simulation.simulator import GameSimulator
 from agents.simple_ai_agent import SimpleAiAgent
 from games.ruleset_one.engine import RuleSetOneEngine
+import copy
 
 def launch():
     """
@@ -21,8 +22,8 @@ def launch():
         game_engine = RuleSetOneEngine()
         attack_bot = Card(card_id="ATTACK_BOT", name="Attack Bot", properties={'cost': 1})
         draw_bot = Card(card_id="DRAW_BOT", name="Draw Bot", properties={'cost': 1})
-        deck1 = [Card(c.card_id, c.name, c.properties) for c in [attack_bot]*10 + [draw_bot]*10]
-        deck2 = [Card(c.card_id, c.name, c.properties) for c in [attack_bot]*10 + [draw_bot]*10]
+        deck1 = [Card(c.card_id, c.name, copy.deepcopy(c.properties)) for c in [attack_bot]*10 + [draw_bot]*10]
+        deck2 = [Card(c.card_id, c.name, copy.deepcopy(c.properties)) for c in [attack_bot]*10 + [draw_bot]*10]
 
         # 3. Create and run the simulator
         simulator = GameSimulator(game_engine=game_engine, agents=agents)
