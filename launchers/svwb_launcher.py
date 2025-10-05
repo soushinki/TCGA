@@ -21,7 +21,7 @@ def launch():
 
     # 1. Load the database and all valid decks
     try:
-        db = CardDatabase('games/sv/database/cards.json')
+        db = CardDatabase('games/sv/database/test_cards.json')
         deck_loader = DeckLoader('games/sv/decks', db)
         
         if not deck_loader.valid_decks:

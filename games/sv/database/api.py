@@ -17,15 +17,15 @@ try:
         print(f"Success! Found {card_count} cards.")
 
         # --- NEW: Save the card_list to disk ---
-        print(f"Saving data to '{output_filename}'...")
+        # print(f"Saving data to '{output_filename}'...")
 
         # 2. Open the file in write mode ('w')
-        with open(output_filename, 'w', encoding='utf-8') as f:
+        # with open(output_filename, 'w', encoding='utf-8') as f:
             # 3. Use json.dump() to write the data
             # indent=2 makes the JSON file nicely formatted and easy to read.
-            json.dump(card_list, f, indent=2, ensure_ascii=False)
+            # json.dump(card_list, f, indent=2, ensure_ascii=False)
         
-        print("File saved successfully.")
+        # print("File saved successfully.")
         
     else:
         print(f"Error: Failed to fetch data. Status code: {response.status_code}")
