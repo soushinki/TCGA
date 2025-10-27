@@ -1,4 +1,4 @@
-# filename: games/sv/database/helper_script/skill_parser.py (Parser v5 - Simpler Dynamic, Refined Logic)
+# filename: games/sv/database/helper_script/skill_parser.py (Corrected)
 import json
 import os
 import sys
@@ -16,38 +16,42 @@ def is_numeric(token_value):
     if isinstance(token_value, (int, float)): return True
     return isinstance(token_value, str) and re.fullmatch(r'-?\d+(\.?\d+)?', token_value) is not None
 
-# --- Tokenizer (Treats {..} as single DYNAMIC token) ---
+# --- Tokenizer (Updated) ---
 TOKEN_SPECIFICATION = [
     ('EVO_SEP',    r'//'),
     ('EFFECT_SEP', r','),
-    ('DYNAMIC',    r'\{[^{}]*\}'), # Treat whole {..} as one token
-    ('NUMBER',     r'-?\d+(?:\.\d+)?'),
+    ('COMPARISON', r'>=|>|<=|<|!='),
+    # --- FIX 1: Add NESTED_DYNAMIC before DYNAMIC ---
+    ('NESTED_DYNAMIC', r'\{([^{}]|\{[^{}]*\})*\}'), # Match {{...}} first
+    ('DYNAMIC',    r'\{[^{}]*\}'),         # Match {...} second
+    # --- FIX 2: NUMBER no longer matches '-' ---
+    ('NUMBER',     r'\d+(?:\.\d+)?'),    
     ('KEYWORD',    r'\b[a-zA-Z_][a-zA-Z0-9_]*\b'),
     ('ASSIGN',     r'='),
     ('SEPARATOR',  r'[&|]'),
-    ('COMPARISON', r'>=|>|<=|<|!='),
-    ('OPERATOR',   r'[+\-*/%]'), # Included arithmetic
+    ('OPERATOR',   r'[+\-*/%]'), # '-' is now handled here
     ('DOT',        r'\.'),
     ('PAREN_OPEN', r'\('),
     ('PAREN_CLOSE',r'\)'),
     ('COLON',      r':'),
-    # Removed explicit braces
     ('OTHER_SYM',  r'[?!]'),
     ('WHITESPACE', r'\s+'),
     ('MISMATCH',   r'.'),
 ]
 TOKEN_REGEX = '|'.join('(?P<%s>%s)' % pair for pair in TOKEN_SPECIFICATION)
-STRUCTURAL_TOKENS = {'//', ',', '=', '&', '|', '<', '>', '<=', '>=', '!=', '+', '-', '*', '/', '%'} # Removed .()?!:{}
+# --- FIX 1: Add NESTED_DYNAMIC to structural tokens ---
+STRUCTURAL_TOKENS = {'//', ',', '=', '&', '|', '<', '>', '<=', '>=', '!=', '+', '-', '*', '/', '%', '{}', '{{}}'} # Added {}{{}}
 
 
 def tokenize(text):
+    """Yields (token_type, token_value) tuples, ignoring whitespace/mismatch."""
     if not text: return
     for mo in re.finditer(TOKEN_REGEX, text):
         kind, value = mo.lastgroup, mo.group()
         if kind not in ['WHITESPACE', 'MISMATCH']:
             yield (kind, value)
 
-# --- Parser (Revised Precedence and Logic) ---
+# --- Parser (Updated) ---
 def parse_skill(skill_str):
     if not isinstance(skill_str, str) or not skill_str.strip(): return None
     tokens = list(tokenize(skill_str))
@@ -64,78 +68,73 @@ def parse_skill(skill_str):
             except ValueError: return kind, value
         return kind, value
 
-    # --- Revised Parsing Functions ---
     def parse_primary():
         kind, value = peek()
-        # Treat DYNAMIC as a primary leaf node
-        if kind in ('KEYWORD', 'DYNAMIC', 'NUMBER'):
+        # --- FIX 1: Add NESTED_DYNAMIC as a primary token ---
+        if kind in ('KEYWORD', 'DYNAMIC', 'NESTED_DYNAMIC', 'NUMBER'):
             consume(); return value
         elif kind == 'PAREN_OPEN':
             consume(); expr = parse_toplevel(); consume('PAREN_CLOSE'); return expr
         elif kind == 'KEYWORD' and value.lower() == 'none':
              consume(); return 'none'
+        # --- FIX 2: Handle unary minus ---
+        elif kind == 'OPERATOR' and value == '-':
+             consume() # consume '-'
+             primary = parse_primary() 
+             return ['UNARY_MINUS', primary]
         else:
              if kind is None: raise ValueError("Expected primary value, found end.")
-             # If it's an operator, something is wrong with precedence
-             if value in STRUCTURAL_TOKENS:
-                  raise ValueError(f"Expected primary value but got operator/separator: {kind} ('{value}')")
-             consume(); return value # Pass unknown symbols?
+             if value in STRUCTURAL_TOKENS - {'(', '-'}: # Allow parens/unary-minus
+                 raise ValueError(f"Expected primary value but got operator/symbol: {kind} ('{value}')")
+             consume(); return value
 
-    # Build parser using operator precedence (calls go from lower to higher precedence)
-    def build_parser(parse_lower_precedence_func, operators, right_associative=False):
-        # This needs careful token checking to prevent over-consuming
+    # --- TYPO FIX in argument name (from code.txt) ---
+    def build_binary_op_parser(parse_lower_precedence_func, operators, right_associative=False):
         def parser():
-            # --- TYPO FIX: Use parse_lower_precedence_func ---
-            left = parse_lower_precedence_func()
+            # --- TYPO FIX: Changed 'lower_precedence_parser' to 'parse_lower_precedence_func' ---
+            left = parse_lower_precedence_func() 
             kind, value = peek()
-            while value in operators:
-                consume() # Consume operator
-                op = value
-                if peek()[0] is None:
-                     raise ValueError(f"Unexpected end of input after operator '{op}'")
-
-                if right_associative:
-                    right = parser()
-                else:
-                    # --- TYPO FIX: Use parse_lower_precedence_func ---
-                    right = parse_lower_precedence_func()
-
-                left = [op, left, right]
-                kind, value = peek() # Look ahead for next iteration
-            return left
+            if right_associative:
+                if value in operators:
+                    consume(); op = value; right = parser(); return [op, left, right]
+                return left
+            else: # Left associative
+                while value in operators:
+                    consume(); op = value
+                    # --- TYPO FIX: Use the argument name ---
+                    right = parse_lower_precedence_func() 
+                    left = [op, left, right]
+                    kind, value = peek()
+                return left
         return parser
 
-    # Define the chain based on precedence
-    parse_term = build_parser(parse_primary, {'*', '/', '%'})
-    parse_expr = build_parser(parse_term, {'+', '-'})
-    parse_comparison = build_parser(parse_expr, {'>=', '>', '<=', '<', '!='})
-    parse_assignment = build_parser(parse_comparison, {'='}, right_associative=True)
-    parse_and = build_parser(parse_assignment, {'&'})
-    parse_or = build_parser(parse_and, {'|'})
-    parse_effect = parse_or # Base for a single effect between commas
-
+    # --- FIX 2: Add arithmetic operators to the precedence chain ---
+    parse_term = build_binary_op_parser(parse_primary, {'*', '/', '%'})
+    parse_expr = build_binary_op_parser(parse_term, {'+', '-'}) 
+    parse_comparison = build_binary_op_parser(parse_expr, {'>=', '>', '<=', '<', '!='})
+    parse_assignment = build_binary_op_parser(parse_comparison, {'='}, right_associative=True)
+    parse_and = build_binary_op_parser(parse_assignment, {'&'})
+    parse_or = build_binary_op_parser(parse_and, {'|'})
+    
     def parse_effect_list():
-        effects = []
         if peek()[0] is None or peek()[1] == '//':
-            return None
-        effects.append(parse_effect()) # Parse the first effect
+             return 'none'
+        effects = [parse_or()] # Start parsing at the lowest precedence
         while peek()[1] == ',':
-            consume() # Consume ','
+            consume()
             if peek()[0] is None or peek()[1] == '//': break
-            effects.append(parse_effect())
+            effects.append(parse_or())
         if len(effects) == 1 and effects[0] == 'none': return 'none'
         return effects
 
     def parse_toplevel():
         left = parse_effect_list()
         if peek()[1] == '//':
-            consume() # Consume '//'
-            op = '//'
-            if peek()[0] is None: right = None
+            consume(); op = '//'
+            if peek()[0] is None: right = 'none'
             else: right = parse_effect_list()
-            if left == 'none' and right is None: return None
             if left == 'none' and right == 'none': return None
-            return [op, left if left is not None else [], right if right is not None else []]
+            return [op, left, right]
         return left
 
     # --- Start Parsing ---
@@ -151,11 +150,13 @@ def parse_skill(skill_str):
         remaining_tokens = tokens[token_index:] if token_index < len(tokens) else "N/A"
         raise ValueError(f"Unexpected parsing error: {e}. Near: {remaining_tokens}")
 
-# --- (print_tree_indented function remains the same) ---
+
+# --- Function to print the tree with indentation ---
 def print_tree_indented(node, indent=""):
     indent_increment = "  "
+    # --- FIX 1 & 2: Add UNARY_MINUS and {{}} ---
     if isinstance(node, (list, tuple)):
-        is_operator_node = len(node) > 0 and isinstance(node[0], str) and node[0] in STRUCTURAL_TOKENS
+        is_operator_node = len(node) > 0 and isinstance(node[0], str) and (node[0] in STRUCTURAL_TOKENS or node[0] == 'UNARY_MINUS' or node[0] == '{{}}')
         if is_operator_node:
             print(f"{indent}{node[0]}")
             for i in range(1, len(node)):
@@ -167,33 +168,46 @@ def print_tree_indented(node, indent=""):
     elif node is not None:
         print(f"{indent}{node}")
 
-# --- (reconstruct_from_tree function remains the same) ---
+# --- Function to reconstruct the string from the tree ---
 def reconstruct_from_tree(node):
     if isinstance(node, (list, tuple)):
-        is_operator_node = len(node) > 0 and isinstance(node[0], str) and node[0] in STRUCTURAL_TOKENS
+        is_operator_node = len(node) > 0 and isinstance(node[0], str) and (node[0] in STRUCTURAL_TOKENS or node[0] == 'UNARY_MINUS' or node[0] == '{{}}')
         if is_operator_node:
             op = node[0]
-            if len(node) == 3:
+            # --- FIX 1: Handle nested brace structure ---
+            if op == '{{}}':
+                inner_str = reconstruct_from_tree(node[1]) if len(node) > 1 else ""
+                return f"{{{{{inner_str}}}}}" # Reconstruct with double braces
+            # --- FIX 2: Handle UNARY_MINUS ---
+            elif op == 'UNARY_MINUS':
+                return f"-{reconstruct_from_tree(node[1])}"
+            elif len(node) == 3: # Handle binary operators
                 left_str = reconstruct_from_tree(node[1])
                 right_str = reconstruct_from_tree(node[2])
                 return f"{left_str}{op}{right_str}"
-            elif len(node) == 2 and op == '//':
-                left_str = reconstruct_from_tree(node[1])
-                return f"{left_str}{op}"
-            else:
+            else: 
                   return op + "".join(reconstruct_from_tree(n) for n in node[1:])
-        else:
+        else: # Generic list (from comma separation)
              return ",".join(reconstruct_from_tree(item) for item in node)
     elif node is not None:
         return str(node)
     else:
         return ""
 
-# --- (verify_reconstruction_for_all_cards function remains the same) ---
+# --- verify_reconstruction_for_all_cards (Main loop) ---
 def verify_reconstruction_for_all_cards():
-    script_dir = os.path.dirname(__file__)
+    # This pathing assumes the script is in 'helper_script'
+    script_dir = os.path.dirname(__file__) 
     db_parent_path = os.path.join(script_dir, '..')
     db_filepath = os.path.join(db_parent_path, DB_FILENAME)
+    
+    # Fallback if script is run from root
+    if not os.path.exists(db_filepath):
+        db_filepath = os.path.join("games/sv/database", DB_FILENAME)
+        if not os.path.exists(db_filepath):
+             print(f"FATAL ERROR: Cannot find DB at {db_filepath}")
+             return
+
     print(f"--- Verifying Reconstruction for '{FIELD_TO_ANALYZE}' Field ---")
     print(f"Loading data from '{db_filepath}'...")
     try:
@@ -212,15 +226,23 @@ def verify_reconstruction_for_all_cards():
         parsed_tree = None; reconstructed_string = ""; reconstructed_compact = ""
 
         try:
-            if raw_string.strip(): parsed_tree = parse_skill(raw_string)
-            else: parsed_tree = None
+            if raw_string.strip() and raw_string.strip().lower() != 'none':
+                parsed_tree = parse_skill(raw_string)
+            elif raw_string.strip().lower() == 'none':
+                parsed_tree = 'none'
+            else: 
+                parsed_tree = None
             cards_processed += 1
 
             if parsed_tree is not None:
                  reconstructed_string = reconstruct_from_tree(parsed_tree)
                  reconstructed_compact = "".join(reconstructed_string.split())
+            else:
+                reconstructed_compact = ""
 
-            if raw_string_compact != reconstructed_compact:
+            if raw_string_compact == 'none' and reconstructed_compact == 'none':
+                 pass
+            elif raw_string_compact != reconstructed_compact:
                 mismatches_found += 1
                 print("-" * 40); print(f"MISMATCH FOUND for Card ID: {card_id} ({card.get('card_name', '')})")
                 print(f"\n1. Raw String:\n   '{raw_string}'"); print("\n2. Parsed Tree (Indented):")
