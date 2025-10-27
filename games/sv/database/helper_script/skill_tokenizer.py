@@ -70,28 +70,24 @@ def parse_skill(skill_str):
 
     def parse_primary():
         kind, value = peek()
-        # --- FIX 1: Add NESTED_DYNAMIC as a primary token ---
         if kind in ('KEYWORD', 'DYNAMIC', 'NESTED_DYNAMIC', 'NUMBER'):
             consume(); return value
         elif kind == 'PAREN_OPEN':
             consume(); expr = parse_toplevel(); consume('PAREN_CLOSE'); return expr
         elif kind == 'KEYWORD' and value.lower() == 'none':
              consume(); return 'none'
-        # --- FIX 2: Handle unary minus ---
         elif kind == 'OPERATOR' and value == '-':
              consume() # consume '-'
              primary = parse_primary() 
              return ['UNARY_MINUS', primary]
         else:
              if kind is None: raise ValueError("Expected primary value, found end.")
-             if value in STRUCTURAL_TOKENS - {'(', '-'}: # Allow parens/unary-minus
+             if value in STRUCTURAL_TOKENS - {'(', '-'}: 
                  raise ValueError(f"Expected primary value but got operator/symbol: {kind} ('{value}')")
              consume(); return value
 
-    # --- TYPO FIX in argument name (from code.txt) ---
     def build_binary_op_parser(parse_lower_precedence_func, operators, right_associative=False):
         def parser():
-            # --- TYPO FIX: Changed 'lower_precedence_parser' to 'parse_lower_precedence_func' ---
             left = parse_lower_precedence_func() 
             kind, value = peek()
             if right_associative:
@@ -101,14 +97,12 @@ def parse_skill(skill_str):
             else: # Left associative
                 while value in operators:
                     consume(); op = value
-                    # --- TYPO FIX: Use the argument name ---
                     right = parse_lower_precedence_func() 
                     left = [op, left, right]
                     kind, value = peek()
                 return left
         return parser
 
-    # --- FIX 2: Add arithmetic operators to the precedence chain ---
     parse_term = build_binary_op_parser(parse_primary, {'*', '/', '%'})
     parse_expr = build_binary_op_parser(parse_term, {'+', '-'}) 
     parse_comparison = build_binary_op_parser(parse_expr, {'>=', '>', '<=', '<', '!='})
@@ -119,7 +113,7 @@ def parse_skill(skill_str):
     def parse_effect_list():
         if peek()[0] is None or peek()[1] == '//':
              return 'none'
-        effects = [parse_or()] # Start parsing at the lowest precedence
+        effects = [parse_or()] 
         while peek()[1] == ',':
             consume()
             if peek()[0] is None or peek()[1] == '//': break
@@ -133,7 +127,6 @@ def parse_skill(skill_str):
             consume(); op = '//'
             if peek()[0] is None: right = 'none'
             else: right = parse_effect_list()
-            if left == 'none' and right == 'none': return None
             return [op, left, right]
         return left
 
