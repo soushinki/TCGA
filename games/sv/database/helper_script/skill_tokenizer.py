@@ -24,6 +24,7 @@ TOKEN_SPECIFICATION = [
     ('COMPARISON', r'>=|>|<=|<|!='),
     ('NESTED_DYNAMIC', r'\{([^{}]|\{[^{}]*\})*\}'),
     ('DYNAMIC',    r'\{[^{}]*\}'),
+    ('ID_WITH_UNDERSCORE', r'\d+_\d+([a-zA-Z0-9_]*)'),
     ('NUMBER',     r'\d+(?:\.\d+)?'),
     ('KEYWORD',    r'\b[a-zA-Z_][a-zA-Z0-9_]*\b'),
     ('ASSIGN',     r'='),
@@ -39,7 +40,7 @@ TOKEN_SPECIFICATION = [
     ('MISMATCH',   r'.'),
 ]
 TOKEN_REGEX = '|'.join('(?P<%s>%s)' % pair for pair in TOKEN_SPECIFICATION)
-STRUCTURAL_TOKENS = {'//', ',', '=', '&', '|', '<', '>', '<=', '>=', '!=', '.', '(', ')', ':', '+', '-', '*', '/', '%', '?', '!', '{}', '{{}}', '@', 'SEQ'}
+STRUCTURAL_TOKENS = {'//', ',', '=', '&', '|', '<', '>', '<=', '>=', '!=', '.', '(', ')', ':', '+', '-', '*', '/', '%', '?', '!', '{}', '{{}}', '@', 'SEQ', 'UNARY_QUESTION'}
 
 
 def tokenize(text):
@@ -75,7 +76,7 @@ def parse_skill(skill_str):
     
     def parse_primary():
         kind, value = peek()
-        if kind in ('KEYWORD', 'DYNAMIC', 'NESTED_DYNAMIC', 'NUMBER', 'ARROW_SYM'):
+        if kind in ('KEYWORD', 'DYNAMIC', 'NESTED_DYNAMIC', 'NUMBER', 'ARROW_SYM', 'ID_WITH_UNDERSCORE'):
             consume(); return value
         elif kind == 'PAREN_OPEN':
             consume(); expr = parse_or(); expect('PAREN_CLOSE'); return ['(', expr]
@@ -88,7 +89,7 @@ def parse_skill(skill_str):
         elif kind == 'OTHER_SYM' and value == '?':
              consume() # consume '?'
              primary = parse_primary()
-             return ['?', primary]
+             return ['UNARY_QUESTION', primary]
         else:
              if kind is None: raise ValueError("Expected primary value, found end.")
              if value in STRUCTURAL_TOKENS - {'(', '-'}: 
@@ -145,8 +146,9 @@ def parse_skill(skill_str):
     parse_at_sym = build_binary_op_parser(parse_juxtaposition_sequence, {'@'})
     parse_colon_op = build_binary_op_parser(parse_at_sym, {':'})
     parse_term = build_binary_op_parser(parse_colon_op, {'*', '/', '%'})
-    parse_expr = build_binary_op_parser(parse_term, {'+', '-'}) 
-    parse_comparison = build_binary_op_parser(parse_expr, {'>=', '>', '<=', '<', '!='})
+    parse_expr = build_binary_op_parser(parse_term, {'+', '-'})
+    parse_question_op = build_binary_op_parser(parse_expr, {'?'})
+    parse_comparison = build_binary_op_parser(parse_question_op, {'>=', '>', '<=', '<', '!='})
     parse_assignment = build_binary_op_parser(parse_comparison, {'='}, right_associative=True)
     parse_and = build_binary_op_parser(parse_assignment, {'&'})
     parse_or = build_binary_op_parser(parse_and, {'|'})
@@ -212,7 +214,7 @@ def reconstruct_from_tree(node):
                 return f"{{{{{inner_str}}}}}" 
             elif op == 'UNARY_MINUS':
                 return f"-{reconstruct_from_tree(node[1])}"
-            elif op == '?':
+            elif op == 'UNARY_QUESTION':
                 return f"?{reconstruct_from_tree(node[1])}"
             elif op == '(':
                 return f"({reconstruct_from_tree(node[1])})"
