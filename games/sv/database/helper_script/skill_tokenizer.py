@@ -21,26 +21,24 @@ TOKEN_SPECIFICATION = [
     ('EVO_SEP',    r'//'),
     ('EFFECT_SEP', r','),
     ('COMPARISON', r'>=|>|<=|<|!='),
-    # --- FIX 1: Add NESTED_DYNAMIC before DYNAMIC ---
-    ('NESTED_DYNAMIC', r'\{([^{}]|\{[^{}]*\})*\}'), # Match {{...}} first
-    ('DYNAMIC',    r'\{[^{}]*\}'),         # Match {...} second
-    # --- FIX 2: NUMBER no longer matches '-' ---
-    ('NUMBER',     r'\d+(?:\.\d+)?'),    
+    ('NESTED_DYNAMIC', r'\{([^{}]|\{[^{}]*\})*\}'),
+    ('DYNAMIC',    r'\{[^{}]*\}'),
+    ('NUMBER',     r'\d+(?:\.\d+)?'),
     ('KEYWORD',    r'\b[a-zA-Z_][a-zA-Z0-9_]*\b'),
     ('ASSIGN',     r'='),
     ('SEPARATOR',  r'[&|]'),
-    ('OPERATOR',   r'[+\-*/%]'), # '-' is now handled here
+    ('OPERATOR',   r'[+\-*/%]'),
     ('DOT',        r'\.'),
     ('PAREN_OPEN', r'\('),
     ('PAREN_CLOSE',r'\)'),
     ('COLON',      r':'),
+    ('AT_SYM',     r'@'),
     ('OTHER_SYM',  r'[?!]'),
     ('WHITESPACE', r'\s+'),
     ('MISMATCH',   r'.'),
 ]
 TOKEN_REGEX = '|'.join('(?P<%s>%s)' % pair for pair in TOKEN_SPECIFICATION)
-# --- FIX 1: Add NESTED_DYNAMIC to structural tokens ---
-STRUCTURAL_TOKENS = {'//', ',', '=', '&', '|', '<', '>', '<=', '>=', '!=', '+', '-', '*', '/', '%', '{}', '{{}}'} # Added {}{{}}
+STRUCTURAL_TOKENS = {'//', ',', '=', '&', '|', '<', '>', '<=', '>=', '!=', '.', '(', ')', ':', '+', '-', '*', '/', '%', '?', '!', '{}', '{{}}', '@'}
 
 
 def tokenize(text):
@@ -103,7 +101,8 @@ def parse_skill(skill_str):
                 return left
         return parser
 
-    parse_term = build_binary_op_parser(parse_primary, {'*', '/', '%'})
+    parse_at_sym = build_binary_op_parser(parse_primary, {'@'})
+    parse_term = build_binary_op_parser(parse_at_sym, {'*', '/', '%'})
     parse_expr = build_binary_op_parser(parse_term, {'+', '-'}) 
     parse_comparison = build_binary_op_parser(parse_expr, {'>=', '>', '<=', '<', '!='})
     parse_assignment = build_binary_op_parser(parse_comparison, {'='}, right_associative=True)
@@ -147,7 +146,6 @@ def parse_skill(skill_str):
 # --- Function to print the tree with indentation ---
 def print_tree_indented(node, indent=""):
     indent_increment = "  "
-    # --- FIX 1 & 2: Add UNARY_MINUS and {{}} ---
     if isinstance(node, (list, tuple)):
         is_operator_node = len(node) > 0 and isinstance(node[0], str) and (node[0] in STRUCTURAL_TOKENS or node[0] == 'UNARY_MINUS' or node[0] == '{{}}')
         if is_operator_node:
@@ -167,11 +165,9 @@ def reconstruct_from_tree(node):
         is_operator_node = len(node) > 0 and isinstance(node[0], str) and (node[0] in STRUCTURAL_TOKENS or node[0] == 'UNARY_MINUS' or node[0] == '{{}}')
         if is_operator_node:
             op = node[0]
-            # --- FIX 1: Handle nested brace structure ---
             if op == '{{}}':
                 inner_str = reconstruct_from_tree(node[1]) if len(node) > 1 else ""
-                return f"{{{{{inner_str}}}}}" # Reconstruct with double braces
-            # --- FIX 2: Handle UNARY_MINUS ---
+                return f"{{{{{inner_str}}}}}" 
             elif op == 'UNARY_MINUS':
                 return f"-{reconstruct_from_tree(node[1])}"
             elif len(node) == 3: # Handle binary operators
@@ -180,7 +176,7 @@ def reconstruct_from_tree(node):
                 return f"{left_str}{op}{right_str}"
             else: 
                   return op + "".join(reconstruct_from_tree(n) for n in node[1:])
-        else: # Generic list (from comma separation)
+        else: 
              return ",".join(reconstruct_from_tree(item) for item in node)
     elif node is not None:
         return str(node)
@@ -189,17 +185,9 @@ def reconstruct_from_tree(node):
 
 # --- verify_reconstruction_for_all_cards (Main loop) ---
 def verify_reconstruction_for_all_cards():
-    # This pathing assumes the script is in 'helper_script'
-    script_dir = os.path.dirname(__file__) 
+    script_dir = os.path.dirname(__file__)
     db_parent_path = os.path.join(script_dir, '..')
     db_filepath = os.path.join(db_parent_path, DB_FILENAME)
-    
-    # Fallback if script is run from root
-    if not os.path.exists(db_filepath):
-        db_filepath = os.path.join("games/sv/database", DB_FILENAME)
-        if not os.path.exists(db_filepath):
-             print(f"FATAL ERROR: Cannot find DB at {db_filepath}")
-             return
 
     print(f"--- Verifying Reconstruction for '{FIELD_TO_ANALYZE}' Field ---")
     print(f"Loading data from '{db_filepath}'...")
