@@ -39,7 +39,7 @@ TOKEN_SPECIFICATION = [
     ('MISMATCH',   r'.'),
 ]
 TOKEN_REGEX = '|'.join('(?P<%s>%s)' % pair for pair in TOKEN_SPECIFICATION)
-STRUCTURAL_TOKENS = {'//', ',', '=', '&', '|', '<', '>', '<=', '>=', '!=', '.', '(', ')', ':', '+', '-', '*', '/', '%', '?', '!', '{}', '{{}}', '@', 'PAREN'}
+STRUCTURAL_TOKENS = {'//', ',', '=', '&', '|', '<', '>', '<=', '>=', '!=', '.', '(', ')', ':', '+', '-', '*', '/', '%', '?', '!', '{}', '{{}}', '@', 'SEQ'}
 
 
 def tokenize(text):
@@ -78,18 +78,52 @@ def parse_skill(skill_str):
         if kind in ('KEYWORD', 'DYNAMIC', 'NESTED_DYNAMIC', 'NUMBER', 'ARROW_SYM'):
             consume(); return value
         elif kind == 'PAREN_OPEN':
-            consume(); expr = parse_or(); expect('PAREN_CLOSE'); return ['PAREN', expr]
+            consume(); expr = parse_or(); expect('PAREN_CLOSE'); return ['(', expr]
         elif kind == 'KEYWORD' and value.lower() == 'none':
              consume(); return 'none'
         elif kind == 'OPERATOR' and value == '-':
              consume() # consume '-'
              primary = parse_primary() 
              return ['UNARY_MINUS', primary]
+        elif kind == 'OTHER_SYM' and value == '?':
+             consume() # consume '?'
+             primary = parse_primary()
+             return ['?', primary]
         else:
              if kind is None: raise ValueError("Expected primary value, found end.")
              if value in STRUCTURAL_TOKENS - {'(', '-'}: 
                  raise ValueError(f"Expected primary value but got operator/symbol: {kind} ('{value}')")
              consume(); return value
+
+    def parse_juxtaposition_sequence():
+        """
+        Parses sequences like (a:b)(c:d) or func(a:b).
+        This handles the "juxtaposition" (side-by-side) operator.
+        """
+        # Get the first item (e.g., 'skill', or the first '(a:b)' block)
+        item = parse_primary()
+        
+        # Peek at the next token
+        kind, value = peek()
+        
+        # If the next token is NOT an open-paren, it's not a sequence.
+        # Just return the single item we just parsed.
+        if kind != 'PAREN_OPEN':
+            return item
+        
+        # It IS a sequence. Start a sequence node with the first item.
+        sequence_node = ['SEQ', item]
+        
+        # Loop as long as we keep seeing new parenthesized blocks
+        while kind == 'PAREN_OPEN':
+            # parse_primary() will handle the ( ... ) block
+            next_item = parse_primary()
+            sequence_node.append(next_item)
+            
+            # Peek at the next token to see if we continue
+            kind, value = peek()
+            
+        return sequence_node
 
     def build_binary_op_parser(parse_lower_precedence_func, operators, right_associative=False):
         def parser():
@@ -108,7 +142,7 @@ def parse_skill(skill_str):
                 return left
         return parser
 
-    parse_at_sym = build_binary_op_parser(parse_primary, {'@'})
+    parse_at_sym = build_binary_op_parser(parse_juxtaposition_sequence, {'@'})
     parse_colon_op = build_binary_op_parser(parse_at_sym, {':'})
     parse_term = build_binary_op_parser(parse_colon_op, {'*', '/', '%'})
     parse_expr = build_binary_op_parser(parse_term, {'+', '-'}) 
@@ -178,8 +212,12 @@ def reconstruct_from_tree(node):
                 return f"{{{{{inner_str}}}}}" 
             elif op == 'UNARY_MINUS':
                 return f"-{reconstruct_from_tree(node[1])}"
-            elif op == 'PAREN':
+            elif op == '?':
+                return f"?{reconstruct_from_tree(node[1])}"
+            elif op == '(':
                 return f"({reconstruct_from_tree(node[1])})"
+            elif op == 'SEQ':
+                return "".join(reconstruct_from_tree(n) for n in node[1:])
             elif len(node) == 3: # Handle binary operators
                 left_str = reconstruct_from_tree(node[1])
                 right_str = reconstruct_from_tree(node[2])
