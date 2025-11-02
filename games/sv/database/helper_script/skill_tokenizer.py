@@ -20,6 +20,7 @@ def is_numeric(token_value):
 TOKEN_SPECIFICATION = [
     ('EVO_SEP',    r'//'),
     ('EFFECT_SEP', r','),
+    ('ARROW_SYM',  r'<-'),
     ('COMPARISON', r'>=|>|<=|<|!='),
     ('NESTED_DYNAMIC', r'\{([^{}]|\{[^{}]*\})*\}'),
     ('DYNAMIC',    r'\{[^{}]*\}'),
@@ -38,7 +39,7 @@ TOKEN_SPECIFICATION = [
     ('MISMATCH',   r'.'),
 ]
 TOKEN_REGEX = '|'.join('(?P<%s>%s)' % pair for pair in TOKEN_SPECIFICATION)
-STRUCTURAL_TOKENS = {'//', ',', '=', '&', '|', '<', '>', '<=', '>=', '!=', '.', '(', ')', ':', '+', '-', '*', '/', '%', '?', '!', '{}', '{{}}', '@'}
+STRUCTURAL_TOKENS = {'//', ',', '=', '&', '|', '<', '>', '<=', '>=', '!=', '.', '(', ')', ':', '+', '-', '*', '/', '%', '?', '!', '{}', '{{}}', '@', 'PAREN'}
 
 
 def tokenize(text):
@@ -65,13 +66,19 @@ def parse_skill(skill_str):
             try: return kind, (float(value) if '.' in value else int(value))
             except ValueError: return kind, value
         return kind, value
-
+    
+    def expect(expected_kind):
+        kind, value = peek()
+        if kind == expected_kind:
+            return consume() # Correctly calls consume() with no arguments
+        raise ValueError(f"Expected token {expected_kind} but got {kind} ('{value}')")
+    
     def parse_primary():
         kind, value = peek()
-        if kind in ('KEYWORD', 'DYNAMIC', 'NESTED_DYNAMIC', 'NUMBER'):
+        if kind in ('KEYWORD', 'DYNAMIC', 'NESTED_DYNAMIC', 'NUMBER', 'ARROW_SYM'):
             consume(); return value
         elif kind == 'PAREN_OPEN':
-            consume(); expr = parse_toplevel(); consume('PAREN_CLOSE'); return expr
+            consume(); expr = parse_or(); expect('PAREN_CLOSE'); return ['PAREN', expr]
         elif kind == 'KEYWORD' and value.lower() == 'none':
              consume(); return 'none'
         elif kind == 'OPERATOR' and value == '-':
@@ -102,7 +109,8 @@ def parse_skill(skill_str):
         return parser
 
     parse_at_sym = build_binary_op_parser(parse_primary, {'@'})
-    parse_term = build_binary_op_parser(parse_at_sym, {'*', '/', '%'})
+    parse_colon_op = build_binary_op_parser(parse_at_sym, {':'})
+    parse_term = build_binary_op_parser(parse_colon_op, {'*', '/', '%'})
     parse_expr = build_binary_op_parser(parse_term, {'+', '-'}) 
     parse_comparison = build_binary_op_parser(parse_expr, {'>=', '>', '<=', '<', '!='})
     parse_assignment = build_binary_op_parser(parse_comparison, {'='}, right_associative=True)
@@ -170,6 +178,8 @@ def reconstruct_from_tree(node):
                 return f"{{{{{inner_str}}}}}" 
             elif op == 'UNARY_MINUS':
                 return f"-{reconstruct_from_tree(node[1])}"
+            elif op == 'PAREN':
+                return f"({reconstruct_from_tree(node[1])})"
             elif len(node) == 3: # Handle binary operators
                 left_str = reconstruct_from_tree(node[1])
                 right_str = reconstruct_from_tree(node[2])
