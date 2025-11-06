@@ -7,7 +7,7 @@ import random
 import pprint
 
 # --- Configuration ---
-FIELD_TO_ANALYZE = "skill_condition"
+FIELD_TO_ANALYZE = "skill"
 DB_FILENAME = "all_sv_cards_slim.json"
 # --- End Configuration ---
 
@@ -40,7 +40,7 @@ TOKEN_SPECIFICATION = [
     ('MISMATCH',   r'.'),
 ]
 TOKEN_REGEX = '|'.join('(?P<%s>%s)' % pair for pair in TOKEN_SPECIFICATION)
-STRUCTURAL_TOKENS = {'//', ',', '=', '&', '|', '<', '>', '<=', '>=', '!=', '.', '(', ')', ':', '+', '-', '*', '/', '%', '?', '!', '{}', '{{}}', '@', 'SEQ', 'UNARY_QUESTION'}
+STRUCTURAL_TOKENS = {'//', ',', '=', '&', '|', '<', '>', '<=', '>=', '!=', '.', '(', ')', ':', '+', '-', '*', '/', '%', '?', '!', '{', '@', 'SEQ', 'UNARY_QUESTION'}
 
 
 def tokenize(text):
@@ -76,8 +76,19 @@ def parse_skill(skill_str):
     
     def parse_primary():
         kind, value = peek()
-        if kind in ('KEYWORD', 'DYNAMIC', 'NESTED_DYNAMIC', 'NUMBER', 'ARROW_SYM', 'ID_WITH_UNDERSCORE'):
+        if kind in ('KEYWORD', 'NUMBER', 'ARROW_SYM', 'ID_WITH_UNDERSCORE'):
             consume(); return value
+        elif kind == 'DYNAMIC' or kind == 'NESTED_DYNAMIC':
+            kind, value = consume() # value is "{content}"
+            content = value[1:-1]   # content is "content"
+            
+            if not content.strip():
+                return ['{', '}'] # Handle empty {}
+            
+            # Recursively parse the content!
+            content_tree = parse_skill(content)
+            return ['{', content_tree]
+        # --- END OF NEW BLOCK ---
         elif kind == 'PAREN_OPEN':
             consume(); expr = parse_or(); expect('PAREN_CLOSE'); return ['(', expr]
         elif kind == 'KEYWORD' and value.lower() == 'none':
@@ -92,7 +103,7 @@ def parse_skill(skill_str):
              return ['UNARY_QUESTION', primary]
         else:
              if kind is None: raise ValueError("Expected primary value, found end.")
-             if value in STRUCTURAL_TOKENS - {'(', '-'}: 
+             if value in STRUCTURAL_TOKENS - {'(', '-', '{', '.'}:
                  raise ValueError(f"Expected primary value but got operator/symbol: {kind} ('{value}')")
              consume(); return value
 
@@ -144,7 +155,8 @@ def parse_skill(skill_str):
         return parser
 
     parse_at_sym = build_binary_op_parser(parse_juxtaposition_sequence, {'@'})
-    parse_colon_op = build_binary_op_parser(parse_at_sym, {':'})
+    parse_dot_op = build_binary_op_parser(parse_at_sym, {'.'})
+    parse_colon_op = build_binary_op_parser(parse_dot_op, {':'})
     parse_term = build_binary_op_parser(parse_colon_op, {'*', '/', '%'})
     parse_expr = build_binary_op_parser(parse_term, {'+', '-'})
     parse_question_op = build_binary_op_parser(parse_expr, {'?'})
@@ -191,7 +203,7 @@ def parse_skill(skill_str):
 def print_tree_indented(node, indent=""):
     indent_increment = "  "
     if isinstance(node, (list, tuple)):
-        is_operator_node = len(node) > 0 and isinstance(node[0], str) and (node[0] in STRUCTURAL_TOKENS or node[0] == 'UNARY_MINUS' or node[0] == '{{}}')
+        is_operator_node = len(node) > 0 and isinstance(node[0], str) and (node[0] in STRUCTURAL_TOKENS or node[0] == 'UNARY_MINUS')
         if is_operator_node:
             print(f"{indent}{node[0]}")
             for i in range(1, len(node)):
@@ -209,15 +221,17 @@ def reconstruct_from_tree(node):
         is_operator_node = len(node) > 0 and isinstance(node[0], str) and (node[0] in STRUCTURAL_TOKENS or node[0] == 'UNARY_MINUS' or node[0] == '{{}}')
         if is_operator_node:
             op = node[0]
-            if op == '{{}}':
-                inner_str = reconstruct_from_tree(node[1]) if len(node) > 1 else ""
-                return f"{{{{{inner_str}}}}}" 
-            elif op == 'UNARY_MINUS':
+            if op == 'UNARY_MINUS':
                 return f"-{reconstruct_from_tree(node[1])}"
             elif op == 'UNARY_QUESTION':
                 return f"?{reconstruct_from_tree(node[1])}"
             elif op == '(':
                 return f"({reconstruct_from_tree(node[1])})"
+            elif op == '{':
+                # Handle empty {} case
+                if len(node) == 2 and node[1] == '}':
+                    return "{}"
+                return f"{{{reconstruct_from_tree(node[1])}}}"
             elif op == 'SEQ':
                 return "".join(reconstruct_from_tree(n) for n in node[1:])
             elif len(node) == 3: # Handle binary operators
@@ -295,9 +309,213 @@ def verify_reconstruction_for_all_cards():
     elif mismatches_found > 0: print("❌ Found mismatches. See details above.")
     elif parse_errors > 0: print("❌ Encountered errors. See details above.")
 
+# --- New Helper Methods (Self-Contained) ---
+
+def get_parsed_tree_for_card(card, field_name):
+    """
+    Gets the raw string for a field from a card object and parses it.
+    (This is the wrapper for parse_skill() you requested)
+    """
+    if not card:
+        print("Error: Received an empty card object.")
+        return None
+
+    card_id = card.get('card_id', 'UnknownID')
+    raw_string = card.get(field_name)
+
+    if not isinstance(raw_string, str) or not raw_string.strip():
+        return None # Empty string or non-string
+    if raw_string.strip().lower() == 'none':
+        return 'none' # Explicit 'none' string
+
+    try:
+        parsed_tree = parse_skill(raw_string)
+        return parsed_tree
+    except Exception as e:
+        print(f"Error parsing field '{field_name}' for Card ID {card_id}: {e}")
+        print(f"Raw String was: '{raw_string}'")
+        return None
+
+def parse_and_print_random_card():
+    """
+    Picks a random card and prints the parsed trees for key skill fields.
+    """
+    # --- Redundant code as requested: Load DB ---
+    script_dir = os.path.dirname(__file__)
+    db_parent_path = os.path.join(script_dir, '..')
+    db_filepath = os.path.join(db_parent_path, DB_FILENAME)
+    all_cards_data = []
+    try:
+        with open(db_filepath, 'r', encoding='utf-8') as f:
+            all_cards_data = json.load(f)
+    except Exception as e:
+        print(f"FATAL ERROR loading JSON in parse_and_print_random_card: {e}")
+        return
+    # --- End redundant code ---
+
+    if not all_cards_data:
+        print("No card data to parse.")
+        return
+
+    random_card = random.choice(all_cards_data)
+    # random_card = all_cards_data[1]
+    card_id = random_card.get('card_id', 'UnknownID')
+    card_name = random_card.get('card_name', 'UnknownName')
+
+    print("\n" + "=" * 50)
+    print(f"📖 Parsing Random Card: {card_id} ({card_name})")
+    print("=" * 50)
+
+    fields_to_parse = ['skill', 'skill_condition', 'skill_target', 'skill_option', 'skill_preprocess']
+
+    for field in fields_to_parse:
+        print(f"\n--- AST for '{field}' ---")
+        raw_string = random_card.get(field, "")
+        
+        if not isinstance(raw_string, str) or not raw_string.strip() or raw_string.strip().lower() == 'none':
+            print(f"   (Field is empty or 'none')")
+            continue
+
+        print(f"   Raw: '{raw_string}'")
+        
+        parsed_tree = get_parsed_tree_for_card(random_card, field)
+        
+        print("   Tree:")
+        if parsed_tree is None:
+            print("     (Parsing resulted in None or Error)")
+        else:
+            print_tree_indented(parsed_tree, indent="     ")
+
+def analyze_and_print_leaf_node_stats():
+    """
+    Iterates all cards, parses key fields, and counts leaf node occurrences.
+    """
+    # --- Redundant code as requested: Load DB ---
+    script_dir = os.path.dirname(__file__)
+    db_parent_path = os.path.join(script_dir, '..')
+    db_filepath = os.path.join(db_parent_path, DB_FILENAME)
+    all_cards_data = []
+    try:
+        with open(db_filepath, 'r', encoding='utf-8') as f:
+            all_cards_data = json.load(f)
+    except Exception as e:
+        print(f"FATAL ERROR loading JSON in analyze_and_print_leaf_node_stats: {e}")
+        return
+    # --- End redundant code ---
+
+    print("\n" + "=" * 50)
+    print("📊 Analyzing Leaf Node Statistics for All Cards...")
+    print("=" * 50)
+    
+    # 1. Define the maps
+    skill_stats = {}
+    condition_stats = {}
+    target_stats = {}
+    option_stats = {}
+    preprocess_stats = {}
+
+    # 2. Define the recursive helper to count leaves
+    def _count_leaves(node, stats_map):
+        """Recursively traverses the tree and counts leaves."""
+        
+        # --- Base Case: If not a list/tuple, it's a leaf. ---
+        if not isinstance(node, (list, tuple)):
+            if node is None: return # Don't count None
+
+            if is_numeric(node):
+                return
+
+            key = str(node)
+            stats_map[key] = stats_map.get(key, 0) + 1
+            return
+
+        # --- Recursive Case: It IS a list/tuple. ---
+        
+        # Check if it's an operator node
+        is_operator_node = (len(node) > 0 and 
+                            isinstance(node[0], str) and 
+                            (node[0] in STRUCTURAL_TOKENS or 
+                             node[0] == 'UNARY_MINUS'))
+
+        if is_operator_node:
+            # It's a branch like ['+', 'a', 'b'].
+            # ONLY recurse on the children (node[1:]).
+            for i in range(1, len(node)):
+                _count_leaves(node[i], stats_map)
+        else:
+            # It's a "Group/List" like ['none', ['=', ...]]
+            # Recurse on ALL items.
+            for item in node:
+                _count_leaves(item, stats_map)
+
+    # 3. Iterate all cards and parse
+    print(f"Processing {len(all_cards_data)} cards, please wait...")
+    for card in all_cards_data:
+        # Get tree and count leaves for each field
+        _count_leaves(
+            get_parsed_tree_for_card(card, 'skill'),
+            skill_stats
+        )
+        _count_leaves(
+            get_parsed_tree_for_card(card, 'skill_condition'),
+            condition_stats
+        )
+        _count_leaves(
+            get_parsed_tree_for_card(card, 'skill_target'),
+            target_stats
+        )
+        _count_leaves(
+            get_parsed_tree_for_card(card, 'skill_option'),
+            option_stats
+        )
+        _count_leaves(
+            get_parsed_tree_for_card(card, 'skill_preprocess'),
+            preprocess_stats
+        )
+    
+    print("...Processing complete.")
+
+    # 4. Print all 5 maps
+    print("\n--- 🍃 Leaf Stats for 'skill' ---")
+    pprint.pprint(skill_stats)
+    
+    print("\n--- 🍃 Leaf Stats for 'skill_condition' ---")
+    pprint.pprint(condition_stats)
+
+    print("\n--- 🍃 Leaf Stats for 'skill_target' ---")
+    pprint.pprint(target_stats)
+    
+    print("\n--- 🍃 Leaf Stats for 'skill_option' ---")
+    pprint.pprint(option_stats)
+    
+    print("\n--- 🍃 Leaf Stats for 'skill_preprocess' ---")
+    pprint.pprint(preprocess_stats)
+    
+    print("\n" + "=" * 50)
+    print("📊 Analysis Complete.")
+    print("=" * 50)
 
 # --- Execution ---
 if __name__ == "__main__":
     DB_FILENAME = "all_sv_cards_slim.json"
-    try: verify_reconstruction_for_all_cards()
-    except Exception as e: print(f"An unexpected top-level error: {e}")
+    
+    # 1. Run the original verification (as-is)
+    try:
+        print("--- Running Original Verification ---")
+        verify_reconstruction_for_all_cards()
+    except Exception as e:
+        print(f"An unexpected top-level error during verification: {e}")
+    
+    # 2. Run the new random card parser
+    try:
+        print("\n--- Running New Random Card Parser ---")
+        parse_and_print_random_card()
+    except Exception as e:
+        print(f"An unexpected top-level error during random card parse: {e}")
+        
+    # 3. Run the new stats analyzer
+    try:
+        print("\n--- Running New Leaf Node Stats Analyzer ---")
+        analyze_and_print_leaf_node_stats()
+    except Exception as e:
+        print(f"An unexpected top-level error during stats analysis: {e}")
